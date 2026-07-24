@@ -297,3 +297,86 @@
   contract with zero errors (the parser→grouping seam). Caveat carried forward: `methodCallFrequency`
   and `sharedTypeCount` are Phase-1 zeros, so core's initial `strength` weighting is import-driven.
 - **Next:** Owner performs the merge/tag/branch when ready; then build `packages/core`.
+
+### 2026-07-11 23:05 — Phase 2 started: `packages/core` scaffolded with the deterministic primitives
+- **What:** Started the Review-2 grouping engine per the `hierarchical-repository-grouping` spec.
+  Scaffolded `packages/core` (package manifest, tsconfig, README), the structured error model
+  (`errors.ts`) and internal data model (`types.ts`), then the two primitives everything else
+  depends on: canonical ordering + stable stringify (`canonical.ts`) and content-addressed group
+  ids (`group-id.ts`), with their property tests and the fast-check dependency-graph arbitraries
+  (`test-support/arbitraries.ts`). Wired the root workspace build/scripts for the new package and
+  scoped the parser's test runner to compiled `dist/` tests (Node-version compatibility).
+- **Why:** Determinism is the hard requirement — canonical order and stable ids must exist before
+  any pipeline stage, or byte-identical output is unprovable later.
+- **Decision/Outcome:** Build green; canonical/id properties passing under 100-run fast-check.
+- **Next:** the ingest gate and dependency strengths.
+
+### 2026-07-12 23:20 — Graph ingestion, dependency strengths, and region identification
+- **What:** `ingestor.ts` — validates and loads `graph.json` atomically (duplicate identifiers and
+  dangling edge references are rejected with an error and no partial load, per Property 3 / R1.5);
+  `weights.ts` — collapses the edge signals into a dependency strength; `regions.ts` — assigns
+  primary regions from Java package paths. Property tests for ingestion and weighting.
+- **Why:** The ingest gate is the engine's trust boundary on the JSON contract; strengths and
+  regions are the inputs the assessment stage consumes.
+- **Decision/Outcome:** Atomic-rejection and strength properties pinned and green.
+- **Next:** structural-quality assessment.
+
+### 2026-07-14 23:40 — Structural-quality assessment built; community-detection seam added
+- **What:** Finished the region property tests, then `assessor.ts` — per-region cohesion/coupling
+  measurement combined into the structural-quality score, with the documented degenerate-region
+  rule (R3.9) — plus its property tests. Added `community.ts`: seeded Louvain behind a
+  `CommunityDetector` seam so the detector stays swappable.
+- **Why:** The score is the first half of the contribution (deciding *whether* to preserve);
+  the seam keeps the reconstruction half decoupled from any specific clustering library.
+- **Decision/Outcome:** Assessment properties green; detector seeded for determinism.
+- **Next:** the adaptive construction step itself.
+
+### 2026-07-16 23:45 — Adaptive preserve-vs-reconstruct construction (the core contribution)
+- **What:** Community-detection determinism tests, then `constructor.ts`: the per-region adaptive
+  decision — regions scoring at or above the boundary keep their package structure (*preserve*),
+  regions below it are rebuilt from the dependency graph via community detection (*reconstruct*) —
+  with its property tests. Started `hierarchy-builder.ts` (multi-level assembly with balanced
+  partitioning).
+- **Why:** This is the project's central research claim: adaptive, per-region construction instead
+  of one global strategy.
+- **Decision/Outcome:** Construction properties green, including boundary/tie behaviour.
+- **Next:** finish hierarchy assembly; pin dependency preservation.
+
+### 2026-07-17 22:10 — Hierarchy assembly finished; dependency preservation pinned
+- **What:** Hierarchy-builder property tests (level shape, balanced partitioning), and the
+  dependency-preservation suite (`edges-preservation.test.ts`) proving every input edge survives
+  into the hierarchy and cross-group edges are accounted for.
+- **Why:** A hierarchy that loses edges is useless for blast radius and the viewer; preservation
+  had to be pinned as a property, not assumed.
+- **Decision/Outcome:** Preservation properties green.
+- **Next:** metadata, index serialization, blast radius.
+
+### 2026-07-18 23:30 — Metadata, whole-pipeline determinism, the five-file index, and blast radius
+- **What:** `metadata.ts` (run metadata + per-level stats), the whole-pipeline determinism suite
+  (same-input and shuffled-input byte-identity, Properties 24/25), `index-serializer.ts` +
+  `index-parser.ts` (the five-file `index/` set written and read back, with round-trip tests), and
+  `blast-radius.ts` (reverse-reachability impact analysis) with its property tests.
+- **Why:** The `index/` file set is the contract seam the Phase-3 viewer will consume; determinism
+  had to be proven end-to-end, not per-stage.
+- **Decision/Outcome:** Round-trip and byte-identity properties green.
+- **Next:** orchestrator + CLI, then the full-suite check.
+
+### 2026-07-21 23:15 — Orchestrator, `group` CLI, and demo scripts; full suite green
+- **What:** `orchestrator.ts` behind the public entry point (`index.ts`), the `group` CLI
+  (`group-cli.ts`, a temporary demo wrapper like `parse`), and the two demo scripts
+  (`demo-group-determinism.ts`, `demo-baselines.ts`); orchestrator + end-to-end test coverage.
+- **Why:** Completes the spec's task list and gives Review 2 its runnable demos.
+- **Decision/Outcome:** **79 core tests green (all 33 spec correctness properties); 181 total
+  across workspaces.** Deterministic SHA-256-identical output across repeated runs.
+- **Next:** merge `phase-2-core` to `main` when ready (owner-driven milestone).
+
+### 2026-07-23 21:45 — Phase 2 merged to `main`
+- **What:** Merged `phase-2-core` into `main` with `--no-ff` ("merge: phase 2 - grouping algorithm
+  implemented"), mirroring the Review-1 milestone pattern. The `review-2` tag is deferred to the
+  review itself.
+- **Why:** The engine is complete and verified against the spec; keeping `main` as the
+  review-ready line.
+- **Decision/Outcome:** Phase 2 closed. Demo path: `npm run build` → `npm run group -- <repo>` →
+  `index/` + `metadata.json` decision table.
+- **Next:** Review-2 demo/commit guides into `docs/2nd/`; then the Review-3 viewer spec
+  (`packages/web`, React + React Flow).
