@@ -7,19 +7,21 @@
 
 ## Current position
 
-- **Phase:** Review 2 — core grouping algorithm (not yet started; `packages/core` is empty).
-- **Recently done:** Review 1 parser complete (`packages/shared` + `packages/parser` → `graph.json`,
-  102 tests) per BRAIN 2026-07-01. Earlier (2026-07-06): stood up the **Basic Memory
-  task-documentation + memory system** in `.kiro/`. (2026-07-07 11:xx): fixed the memory-MCP binding
-  and recorded the full decision history to the `personal` vault (17 ADRs + 14 knowledge notes).
-  Latest (2026-07-07 13:20): re-verified the Review 1 parser end-to-end (build + 102 tests + both
-  demo scripts) and wrote `docs/1st/review-1-demo-guide.md` for the Review 1 presentation.
-- **Next review:** Second Review — **15.07.2026** — deliverable: **algorithm** (`group` → `index/`).
-- **Next action:** **Owner will perform the `phase-1-parser` → `main` merge, `review-1` tag, and
-  `phase-2-core` branch themselves** (git milestone ops are owner-driven — an agent-run merge was
-  reverted 2026-07-07 14:01; nothing was pushed). Parser confirmed solid for Review 2. Then write
-  `hierarchical-repository-grouping/tasks.md` (currently empty) and implement `packages/core`
-  (adaptive preserve-vs-reconstruct grouping → `index/`).
+- **Phase:** Review 2 / Phase 2 — core grouping algorithm **COMPLETE, committed and merged**
+  (`phase-2-core` → `main`, `--no-ff`, 2026-07-23; the `review-2` tag is cut at the review itself).
+  Per `docs/2nd/review-2-demo-guide.md` (runs captured 2026-07-25): the full adaptive
+  preserve-vs-reconstruct pipeline (ingest → weight → regions → assess → construct → assemble →
+  serialize) + blast radius + the five-file `index/`; **79 core tests** (all 33 spec properties) +
+  102 parser tests = **181 green**; deterministic SHA-256 output.
+- **Recently done:** (2026-07-23) merged Phase 2 into `main` after the build landed on
+  `phase-2-core` as one commit per spec task (scaffold + deterministic primitives → ingestion →
+  strengths → regions → assessment → community seam → adaptive construction → hierarchy assembly →
+  metadata → pipeline determinism → index set → blast radius → orchestrator/CLI/demos), each with
+  its tests. Review-2 demo + commit guides authored into `docs/2nd/` (runs captured 2026-07-25).
+- **Next review:** Third Review — **10.08.2026** — deliverable: **viewer** (`view`) + flat baseline
+  (`packages/web`, React + React Flow).
+- **Next action:** Cut the `review-2` tag at the review. Begin the Review 3 viewer spec
+  (`packages/web`), plus parser signal/identity hardening as the highest-value engine follow-up.
 
 ---
 
@@ -48,11 +50,15 @@
       `demo:determinism` → identical SHA-256 across 3 runs. Wrote
       `docs/1st/review-1-demo-guide.md` (commands + real captured output) for the Review 1
       demonstration, plus `docs/1st/README.md`.
+- [x] **Review 2 / Phase 2 core grouping complete** (`packages/core`): the adaptive
+      preserve-vs-reconstruct grouping algorithm → five-file `index/` + blast radius; 79 tests
+      (all 33 spec properties), 181 total, deterministic. Built 2026-07-11 → 2026-07-21 on
+      `phase-2-core` (one commit per spec task), merged to `main` 2026-07-23. Demo + commit
+      guides in `docs/2nd/`.
 
 ## In progress
 
-- Review 2 (core algorithm): `hierarchical-repository-grouping` spec has requirements + design;
-  `tasks.md` is empty and `packages/core` is unbuilt.
+- Review 3 (viewer, `packages/web`) not yet started; `review-2` tag pending the review itself.
 - **Awaiting owner:** (1) DONE 2026-07-07 — `basic-memory` MCP now bound to `personal` via a
   workspace-level `.kiro/settings/mcp.json` override (verified: reports `Project: personal`); (2) optional:
   simplify the contract's agile item_types/phases to a lighter academic set (the de-tracker/de-Zoho pass
@@ -68,16 +74,19 @@
 
 ## Known gaps / open questions
 
-- **Parser produces the graph that the core algorithm consumes** — must target the existing spec's
-  exact schema. (Resolved decision; flagged here as a reminder during build.)
-- Frequency signals (import/call/shared-type) start simple; sharpen later.
+- **Parser dependency signal is import-only** — `methodCallFrequency`/`sharedTypeCount` are not yet
+  populated, so intra-package structure is under-measured on real Java (same-package references
+  need no import). Enriching the parser signal (type-use + method-call edges, same-package name
+  resolution) is the highest-value next engine step; it is a parser-only change across the JSON
+  contract seam, no core rework. Flagged in `docs/2nd/review-2-demo-guide.md` §11.
+- **Parser node identity assumes globally unique FQNs** — multi-module repositories can legally
+  declare the same FQN in different source roots, which the grouping ingestor correctly rejects as
+  a duplicate id. Fix is parser-only (source-root-scoped identity + resolution); to be promoted to
+  a spec/ADR with the signal work above.
 - Final project name **RepoHIVE** locked; command names still TBD (placeholders in use).
 - **Git IS initialized** (13+ commits, `origin` remote, `main` + `phase-1-parser` branches) — the
-  "git not yet initialized" line above and in `steering/git-workflow.md` is stale and should be
+  "git not yet initialized" line in AGENTS.md/`steering/git-workflow.md` is stale and should be
   corrected. Flagged 2026-07-07, not yet fixed.
-- **Review 1 work not merged to `main` / not tagged.** All parser commits live on `phase-1-parser`
-  (pushed to origin); `main` is still pre-parser. Per `git-workflow.md`, review-ready work should
-  merge to `main` and get a `review-1` tag — owner has not yet requested this.
 - **No vault task-record for the parser work** — it was built (2026-07-01) before the Basic Memory
   system existed (2026-07-06), so it has no `tasks/` narrative/test-matrix, only BRAIN/STATE entries.
 - Project diary team/date placeholder fields (`Team No.: _____`, week date ranges) still unfilled —
@@ -87,6 +96,19 @@
 
 ## Decisions log (most recent first)
 
+- **2026-07-23** — **Phase 2 closed: merged `phase-2-core` into `main`** (`--no-ff`, mirroring the
+  Review-1 milestone pattern); the `review-2` tag is deferred to the review itself. The engine
+  landed as one commit per spec task with tests alongside (2026-07-11 → 2026-07-21): deterministic
+  primitives first (canonical order + content-addressed group ids), then ingest gate → dependency
+  strengths → region identification → structural-quality assessment → seeded-Louvain community seam
+  → adaptive preserve-vs-reconstruct construction → balanced hierarchy assembly → metadata →
+  whole-pipeline determinism → five-file `index/` serialize/parse → blast radius → orchestrator +
+  `group` CLI + demo scripts. 79 core tests (all 33 spec correctness properties), 181 total across
+  workspaces; byte-identical SHA-256 output across repeated and shuffled-input runs.
+- **2026-07-11** — Phase-2 implementation started on `phase-2-core` per the
+  `hierarchical-repository-grouping` spec, determinism primitives first (every later stage depends
+  on canonical ordering and stable ids). Also scoped both packages' test runners to compiled
+  `dist/` tests for Node-version compatibility.
 - **2026-07-07** — Process correction: **git milestone operations (merge to `main`, tags, phase
   branches) are owner-driven, not agent-driven.** An agent-performed `phase-1-parser` → `main`
   `--no-ff` merge + `review-1` tag + `phase-2-core` branch (all local, never pushed) was fully
