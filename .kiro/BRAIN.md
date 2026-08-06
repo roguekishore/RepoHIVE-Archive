@@ -380,3 +380,31 @@
   `index/` + `metadata.json` decision table.
 - **Next:** Review-2 demo/commit guides into `docs/2nd/`; then the Review-3 viewer spec
   (`packages/web`, React + React Flow).
+
+### 2026-08-06 23:34 — Wave A complete: preserve fires on real Java
+
+- **What:** Closed Gaps 16, 1a, 1c on branch `parser-hardening` in 11 granular commits. Full
+  suite: 204 passing (84 core + 120 parser), 0 failing. Deterministic SHA-256 confirmed on vantage.
+- **Why:** Wave A is the project's central research claim: the adaptive preserve-vs-reconstruct
+  contribution was only demonstrable on synthetic fixtures (all-reconstruct on real Java). Closing
+  these three gaps in order (16 first as hard prerequisite, then 1a, then 1c) makes preserve fire.
+- **Decision/Outcome:**
+  - **Gap 16** (`core`): made the degenerate rule strength-aware (`intra <= 0`) in `assessor.ts`
+    and added a `totalWeight <= 0` early-return in `community.ts`'s `detect()`. Prevents the
+    singleton explosion that would have fired the moment Gap 1a emitted zero-strength edges.
+  - **Gap 1a** (`parser`): added `collectTypeReferences()` walk in `ast-extractor.ts` collecting
+    type names from field/param/return/extends/implements/new positions. `sharedTypeCount` now
+    populated in `stitcher.ts`. Grammar traps caught during testing: `type_list` needed a case in
+    `typeNamesOf`; `spread_parameter` had to be handled separately (no `type` field).
+  - **Gap 1c** (`parser`): added per-file import index (pre-pass in `stitch()`) and JLS-precedence
+    simple-name resolution in `resolveEndpoints()` — single-type import → same package → wildcard.
+  - **Re-parse results (2026-08-06 23:31):**
+    - `vantage` (158-file Spring Boot): **341 edges** (was 128), **preserve 10 / reconstruct 10**
+      (was 0/20). Determinism SHA-256: `ca6992db73bcb2711a0d688e243fe5a688f6c68f83257729beb495a99ce0671d`.
+    - `sample-java-project` (small synthetic): 6 edges (was 5), 4 regions all reconstruct (correct
+      for a small synthetic — not a layer-packaged app, just too small to show cohesion above 0.5).
+  - Updated assertion: `end-to-end.test.ts` edge count 5 → 6 (superseded by re-parse).
+  - 11 commits on `parser-hardening`; each independently green and revertable.
+- **Next:** Owner merges `parser-hardening` → `main` (`--no-ff`). Wave B (`parser-identity`: Gaps
+  7, 6, 4, 5, 2, 8, 19) follows, with a design pass for Gap 2 at the start.
+  Review 3 (viewer) is 2026-08-10 — the checkpoint in `docs/plan/execution-plan.md` §9 applies.

@@ -7,21 +7,24 @@
 
 ## Current position
 
-- **Phase:** Review 2 / Phase 2 — core grouping algorithm **COMPLETE, committed and merged**
-  (`phase-2-core` → `main`, `--no-ff`, 2026-07-23; the `review-2` tag is cut at the review itself).
-  Per `docs/2nd/review-2-demo-guide.md` (runs captured 2026-07-25): the full adaptive
-  preserve-vs-reconstruct pipeline (ingest → weight → regions → assess → construct → assemble →
-  serialize) + blast radius + the five-file `index/`; **79 core tests** (all 33 spec properties) +
-  102 parser tests = **181 green**; deterministic SHA-256 output.
-- **Recently done:** (2026-07-23) merged Phase 2 into `main` after the build landed on
-  `phase-2-core` as one commit per spec task (scaffold + deterministic primitives → ingestion →
-  strengths → regions → assessment → community seam → adaptive construction → hierarchy assembly →
-  metadata → pipeline determinism → index set → blast radius → orchestrator/CLI/demos), each with
-  its tests. Review-2 demo + commit guides authored into `docs/2nd/` (runs captured 2026-07-25).
-- **Next review:** Third Review — **10.08.2026** — deliverable: **viewer** (`view`) + flat baseline
-  (`packages/web`, React + React Flow).
-- **Next action:** Cut the `review-2` tag at the review. Begin the Review 3 viewer spec
-  (`packages/web`), plus parser signal/identity hardening as the highest-value engine follow-up.
+- **Phase:** Wave A of parser-hardening — **COMPLETE on branch `parser-hardening`** (2026-08-06).
+  Closed Gaps 16, 1a, 1c. **The preserve branch now fires on real Java:**
+  `vantage` (158-file Spring Boot): 20 regions → **preserve 10 / reconstruct 10** (was 0/20).
+  Suite: **204 green** (84 core + 120 parser), 0 failing. Deterministic SHA-256 confirmed.
+- **Recently done:** (2026-08-06) Wave A engine gap fixes on `parser-hardening`:
+  - **Gap 16** (core): strength-aware degenerate guards in `assessor.ts` + `community.ts`.
+    Prevents singleton explosion when intra-region edges carry zero strength.
+  - **Gap 1a** (parser): type-use edge extraction — `collectTypeReferences` walk in
+    `ast-extractor.ts`; `sharedTypeCount` now populated from field/param/return/extends/implements/new
+    type positions. 12 new parser tests.
+  - **Gap 1c** (parser): same-package simple-name resolution in `stitcher.ts` via per-file
+    import index + JLS-precedence candidate list (single-type import → same package → wildcard).
+    6 new stitcher tests.
+  - Re-parsed and re-indexed `vantage` (341 edges, up from 128) and `sample-java-project` (6 edges).
+  - 11 commits on `parser-hardening`; suite grew from 181 → 204.
+- **Next review:** Third Review — **10.08.2026** — deliverable: **viewer** (`view`) + flat baseline.
+- **Next action:** Owner to merge `parser-hardening` → `main` (`--no-ff`). Then begin Wave B
+  (`parser-identity`) or the Review 3 viewer spec, depending on review priority.
 
 ---
 
@@ -58,12 +61,9 @@
 
 ## In progress
 
+- Wave A (`parser-hardening`) complete — awaiting owner merge to `main`.
 - Review 3 (viewer, `packages/web`) not yet started; `review-2` tag pending the review itself.
-- **Awaiting owner:** (1) DONE 2026-07-07 — `basic-memory` MCP now bound to `personal` via a
-  workspace-level `.kiro/settings/mcp.json` override (verified: reports `Project: personal`); (2) optional:
-  simplify the contract's agile item_types/phases to a lighter academic set (the de-tracker/de-Zoho pass
-  itself is done); (3) optional: hide `templates/` from the Obsidian graph; (4) run `bm sync` on the vault
-  to finalize wikilink resolution + permalinks.
+- Waves B–D (`parser-identity`, `engine-integrity`, `engine-audit`) queued per `docs/plan/execution-plan.md`.
 
 ## Next up (Review 1 — Parser)
 
@@ -74,27 +74,35 @@
 
 ## Known gaps / open questions
 
-- **Parser dependency signal is import-only** — `methodCallFrequency`/`sharedTypeCount` are not yet
-  populated, so intra-package structure is under-measured on real Java (same-package references
-  need no import). Enriching the parser signal (type-use + method-call edges, same-package name
-  resolution) is the highest-value next engine step; it is a parser-only change across the JSON
-  contract seam, no core rework. Flagged in `docs/2nd/review-2-demo-guide.md` §11.
-- **Parser node identity assumes globally unique FQNs** — multi-module repositories can legally
-  declare the same FQN in different source roots, which the grouping ingestor correctly rejects as
-  a duplicate id. Fix is parser-only (source-root-scoped identity + resolution); to be promoted to
-  a spec/ADR with the signal work above.
+- **Wave A complete (2026-08-06):** Gaps 16, 1a, 1c closed on `parser-hardening`. Preserve fires
+  on real Java. Awaiting owner merge.
+- **Wave B (`parser-identity`):** Gaps 7, 6, 4, 5, 2, 8, 19 — node identity, resolution, collection.
+  Gap 2 still needs a design pass at the start of Wave B.
+- **Wave C (`engine-integrity`):** Gaps 17, 13, 14, 15, 3, 11, 10.
+- **Wave D (`engine-audit`):** Gaps 9, 20, 22, 21, 18, 12. Open decisions 1–4 from
+  `docs/plan/execution-plan.md` §11 still need owner resolution before respective waves.
+- **Gap 1b (method-call edges):** optional, deferred beyond Wave A per the design.
 - Final project name **RepoHIVE** locked; command names still TBD (placeholders in use).
-- **Git IS initialized** (13+ commits, `origin` remote, `main` + `phase-1-parser` branches) — the
-  "git not yet initialized" line in AGENTS.md/`steering/git-workflow.md` is stale and should be
-  corrected. Flagged 2026-07-07, not yet fixed.
-- **No vault task-record for the parser work** — it was built (2026-07-01) before the Basic Memory
-  system existed (2026-07-06), so it has no `tasks/` narrative/test-matrix, only BRAIN/STATE entries.
-- Project diary team/date placeholder fields (`Team No.: _____`, week date ranges) still unfilled —
-  fine for internal use, needed before physical submission.
+- **Git IS initialized** (commits on `main` + `parser-hardening`). The "git not yet initialized"
+  line in AGENTS.md/`steering/git-workflow.md` is stale — flagged, not yet fixed.
+- Project diary team/date placeholder fields still unfilled — fine for internal use.
 
 ---
 
 ## Decisions log (most recent first)
+
+- **2026-08-06** — **Wave A closed: `parser-hardening` branch complete.**
+  Gaps 16 + 1a + 1c resolved in 11 granular commits, each green and independently revertable.
+  Gap 16 (core): strength-aware degenerate guards prevent singleton explosion on zero-weight edges.
+  Gap 1a (parser): type-use edge extraction from all declared-type positions → `sharedTypeCount`
+  populated; 12 new parser tests; two grammar traps caught during testing (type_list in typeNamesOf,
+  spread_parameter not in TYPED_BY_FIELD).
+  Gap 1c (parser): same-package simple-name resolution via per-file import index + JLS-precedence
+  candidate list → intra-package edges now created; 6 new stitcher tests.
+  **Key outcome:** `vantage` (158-file Spring Boot) re-parsed: 341 edges (was 128), 20 regions
+  → **preserve 10 / reconstruct 10** (was 0/20). The adaptive preserve-vs-reconstruct contribution
+  is demonstrable on real Java. Deterministic SHA-256 confirmed. Suite: 204/0.
+  Awaiting owner merge `parser-hardening` → `main` (`--no-ff`).
 
 - **2026-07-23** — **Phase 2 closed: merged `phase-2-core` into `main`** (`--no-ff`, mirroring the
   Review-1 milestone pattern); the `review-2` tag is deferred to the review itself. The engine
