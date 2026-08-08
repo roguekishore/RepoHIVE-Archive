@@ -7,7 +7,7 @@
 
 ## Current position
 
-- **Phase:** Wave A of parser-hardening — **COMPLETE on branch `parser-hardening`** (2026-08-06).
+- **Phase:** Wave A — **COMPLETE and MERGED to `main`** (`ce1f797`, 2026-08-08, pushed).
   Closed Gaps 16, 1a, 1c. **The preserve branch now fires on real Java:**
   `vantage` (158-file Spring Boot): 20 regions → **preserve 10 / reconstruct 10** (was 0/20).
   Suite: **204 green** (84 core + 120 parser), 0 failing. Deterministic SHA-256 confirmed.
@@ -22,9 +22,16 @@
     6 new stitcher tests.
   - Re-parsed and re-indexed `vantage` (341 edges, up from 128) and `sample-java-project` (6 edges).
   - 11 commits on `parser-hardening`; suite grew from 181 → 204.
-- **Next review:** Third Review — **10.08.2026** — deliverable: **viewer** (`view`) + flat baseline.
-- **Next action:** Owner to merge `parser-hardening` → `main` (`--no-ff`). Then begin Wave B
-  (`parser-identity`) or the Review 3 viewer spec, depending on review priority.
+- **Next review:** **Second Review — owner-stated ~12–14.08.2026** (Review 2 has NOT happened yet).
+  Deliverable: the *algorithm* — now demonstrable with preserve firing on real Java.
+  **`.kiro/steering/review-timeline.md` is stale** (lists Review 2 as 15.07 and Review 3 as 10.08);
+  do not plan from it until steering gets its consolidated update.
+- **Next action:** two independent tracks —
+  (a) **Public repo split** (see `docs/plan/public-repo-replay-plan.md` + `docs/plan/replay/`): rename
+  this repo to `repo-hive-archive`, make it private, create public `repohive`, replay 69 scrubbed
+  commits over 12 days.
+  (b) **Wave B** (`parser-identity`) per `docs/plan/agent-fix-protocol.md` — **blocked on a Gap 2 design
+  pass**, which must be done together with Gap 5.
 
 ---
 
@@ -65,12 +72,32 @@
 - Review 3 (viewer, `packages/web`) not yet started; `review-2` tag pending the review itself.
 - Waves B–D (`parser-identity`, `engine-integrity`, `engine-audit`) queued per `docs/plan/execution-plan.md`.
 
-## Next up (Review 1 — Parser)
+## Next up
 
-- [ ] `dependency-graph-parser` spec: requirements → design → tasks.
-- [ ] `packages/shared`: JSON-contract types (GraphNode, DependencyEdge, etc.).
-- [ ] `packages/parser`: Tree-Sitter Java → stitch → `graph.json`.
-- [ ] Pick a small open-source Java repo as `fixtures/sample-java-project`.
+> This section previously listed Review-1 parser tasks completed in July. Corrected 2026-08-08.
+
+### Track A — public repo split (execution kit ready, nothing run)
+
+Plan: `docs/plan/public-repo-replay-plan.md` · Scripts + instructions: `docs/plan/replay/`
+
+- [ ] Commit the pending `.kiro/hooks/*.json` edits.
+- [ ] Rename this repo `RepoHIVE` → **`repo-hive-archive`**; make it **private**.
+      (Rename must precede creating `repohive` — repo names are case-insensitive for uniqueness.)
+- [ ] Create public **`repohive`**, empty. Turn ON *Include private contributions*.
+- [ ] `pip install git-filter-repo`, then run `01-setup-staging.ps1` — must pass its acceptance test.
+- [ ] Review boundaries with `02-show-batches.ps1`, then replay ~6 commits/day for 12 days.
+
+### Track B — Wave B (`parser-identity`)
+
+Gaps 7, 6, 4, 5, 2, 8, 19 — node identity, resolution, collection. One re-parse at the end.
+
+- [ ] **Gap 2 design pass — BLOCKING.** The only gap with no fix design (`docs/fixes.md` covers 3–22;
+      Gap 1 is designed in `docs/fixes-signal-enrichment.md`). Must reuse Wave A's JLS-precedence
+      resolver in `stitcher.ts`, and must be designed **together with Gap 5** or Gap 5 needs redoing.
+- [ ] Owner decisions needed mid-wave: **Gap 5** separator, **Gap 19** exclusion default.
+- [ ] Then: Gap 7 → 6 → 4 → 5 → 2 → 8 → 19, granular commits, one re-parse, recapture numbers.
+
+**Then:** Wave C (`engine-integrity`) → Wave D (`engine-audit`) → Wave E (`phase-3-viewer`).
 
 ## Known gaps / open questions
 
@@ -90,6 +117,50 @@
 ---
 
 ## Decisions log (most recent first)
+
+- **2026-08-08** — **Repo split decided: this repo goes private as `repo-hive-archive`; a new public
+  `repohive` receives a scrubbed replay.** The university requires a public repo, and 514 KB of the gap/
+  fix/audit registers were found **tracked at `.kiro/gaps.md`, `.kiro/fixes.md`,
+  `.kiro/edge-case-audit.md`** and pushed publicly — the `.git/info/exclude` entries only ever covered
+  the `docs/` copies. Chosen over rewriting this repo's history (which would cost 7 contribution days and
+  still could not un-publish what was already out). 69 of 99 commits survive the exclusion filter
+  (`.kiro/`, `docs/`, `ui-ideas/`, `AGENTS.md`); replayed over 12 days at ~6/day. Execution kit written to
+  `docs/plan/replay/` (3 PowerShell scripts, 2 scrub files, 2 README stages, NOTICE, instructions).
+  Decisions: private contributions ON; `components.json` shipped; commit granularity = one commit per
+  observable sub-behaviour, each independently green.
+- **2026-08-08** — **README ships in two stages, and `NOTICE` is required.** The relicense (2026-08-04)
+  and repowise vendoring (2026-08-05) both happened *after* the grouping algorithm; a single README
+  carrying AGPL and repowise from Day 1 would contradict the MIT `LICENSE` beside it and cite packages
+  that did not exist. Minimal README (general description only — no commands, layout, or metrics, so it
+  does not go stale) lands Day 1 with MIT; the AGPL section plus `NOTICE` land Day 10 with the vendor
+  commits. `NOTICE` is a licence obligation once the vendored AGPL packages ship publicly.
+- **2026-08-05** — **Commit granularity raised for rollback safety.** Replaces "one commit per gap" with
+  **one commit per observable sub-behaviour, each independently green and revertable** (3–7 per gap).
+  A commit that does not build and pass is not a rollback point. Build + full suite before every commit;
+  tag each wave boundary. Gotcha recorded: `graph.json` / `index/` are untracked, so reverting code does
+  **not** restore the artifacts that matched it.
+- **2026-08-05** — **Strategy inverted: close every gap before touching the viewer.** All 22 gaps across
+  four sequential engine branches — Wave A `parser-hardening` (16, 1a, 1c), Wave B `parser-identity`
+  (7, 6, 4, 5, 2, 8, 19), Wave C `engine-integrity` (17, 13, 14, 15, 3, 11, 10), Wave D `engine-audit`
+  (9, 20, 22, 21, 18, 12) — then Wave E `phase-3-viewer`. Ordered by UI need then cross-questioning
+  defensibility, which moved the determinism cluster (13/17/18) earlier and multi-module identity (Gap 2)
+  later. Supersedes the scope/ordering of `docs/phase-1.5/execution-plan.md`.
+- **2026-08-05** — **Adopt repowise's UI under AGPL rather than build a viewer.** repowise (AGPL-3.0,
+  © 2024–2026 Raghav Chamadiya and contributors) ships a Next.js 15 / React 19 / Tailwind 4 app with a
+  canvas semantic-zoom module whose data model is close to a superset of our `index/`. Verified nearly
+  standalone (the canvas's only cross-module import is a theme-token helper), computes layout
+  client-side (no dependency on their Python backend), and is deterministic (sorts by sibling rank, ties
+  by id). **Owner accepted AGPL and explicitly abandoned commercialization**; a hosted instance would
+  ship from this same source. Consequences: relicensed MIT → AGPL-3.0-or-later (`19b27bc`, `4f6e823`);
+  vendored four packages in full onto `phase-3-viewer` (1031 files, unmerged) and gate visibility via
+  `nav-items.ts` rather than prune; Next.js not Vite; UI rationed one new surface per review, and a
+  surface goes live only when our own engine produces its data.
+- **2026-08-05** — **Viewer requirements spec written** (`.kiro/specs/hierarchical-graph-viewer/`),
+  single-pass approval, requirements only. Gap 12 promoted into it as Requirement 3, resolving that
+  gap's open question. **Gap 1 design pass** written to `docs/fixes-signal-enrichment.md` (Fixes 21–23)
+  after verifying `docs/fixes.md` covers only Gaps 3–22 — a claim previously asserted without checking.
+  Tree-Sitter grammar facts verified empirically, catching three traps that would each have produced
+  wrong code. **Fixture build-out cancelled** — clone a suitable repo on the day.
 
 - **2026-08-06** — **Wave A closed: `parser-hardening` branch complete.**
   Gaps 16 + 1a + 1c resolved in 11 granular commits, each green and independently revertable.

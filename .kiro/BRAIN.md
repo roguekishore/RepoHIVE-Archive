@@ -408,3 +408,41 @@
 - **Next:** Owner merges `parser-hardening` → `main` (`--no-ff`). Wave B (`parser-identity`: Gaps
   7, 6, 4, 5, 2, 8, 19) follows, with a design pass for Gap 2 at the start.
   Review 3 (viewer) is 2026-08-10 — the checkpoint in `docs/plan/execution-plan.md` §9 applies.
+
+### 2026-08-08 22:45 — Repo split planned and execution kit written; Aug-05 decisions recovered
+> **Note:** the 2026-08-05 decisions below were written to BRAIN twice before and lost twice, because
+> the edits were uncommitted when branch operations ran. Re-recorded here. **Commit memory files
+> immediately after they are written.**
+
+- **What:**
+  - **Found a real leak.** `.kiro/gaps.md`, `.kiro/fixes.md` and `.kiro/edge-case-audit.md` — 514 KB
+    total — were **tracked and pushed publicly**. The `.git/info/exclude` entries only ever covered the
+    `docs/` copies; identical copies sat tracked under `.kiro/`. Repo confirmed public via the GitHub
+    API (0 forks, 0 stars, so exposure was almost certainly nil).
+  - **Planned the repo split** and wrote the full execution kit to `docs/plan/replay/`: three PowerShell
+    scripts (staging build + verify, batch review, dated replay), `scrub-blobs.txt` (16 replacements),
+    `scrub-messages.txt` (2), two README stages, `NOTICE`, and `AGENT-INSTRUCTIONS.md`. All three
+    scripts syntax-verified with the PowerShell AST parser. Nothing executed.
+  - **Merged Wave A to `main`** (`ce1f797`, pushed). Re-verified independently before planning: 204
+    tests green, `vantage` preserve 10 / reconstruct 10, **zero all-zero-signal edges** on all fixtures,
+    and `stitcher.ts` implements JLS §7.5 precedence with canonically-sorted wildcards as designed.
+- **Why:** The university requires a public repo, so making this one private was not sufficient on its
+  own, and rewriting its history would cost 7 contribution days while still being unable to un-publish
+  what was already out. A new public repo built from a scrubbed replay achieves a clean public artifact
+  with **zero destructive operations** on the existing repo.
+- **Decision/Outcome:**
+  - This repo → **`repo-hive-archive`**, private, unchanged otherwise. New public repo → **`repohive`**.
+  - 69 of 99 commits survive; excluded `.kiro/`, `docs/`, `ui-ideas/` (85 files of third-party
+    templates), `AGENTS.md`. The path filter alone removes every academically-named commit.
+  - Only **2 commit messages** and **13 code sites** needed scrubbing; the one line containing an en dash
+    uses `regex:` because literal byte matching on non-ASCII fails silently in `filter-repo`.
+  - **Chronology must hold in injected content.** Replayed commits are self-consistent by construction,
+    but hand-written files are not: the first README draft carried AGPL and repowise from Day 1, which
+    would have contradicted the MIT `LICENSE` beside it. Split into two minimal stages — MIT on Day 1,
+    AGPL + `NOTICE` on Day 10 with the vendor commits.
+  - Pacing is **required**, not cosmetic: GitHub does not render future-dated commits, so each batch
+    must carry the real date of the day it is pushed.
+  - Private contributions **ON** — keeps the Jun–Aug band alongside the replay band.
+- **Next:** Owner runs the prerequisites (commit hooks, rename, private, create `repohive`, install
+  `git-filter-repo`), then `01-setup-staging.ps1` and checks its acceptance test. In parallel, Wave B
+  needs a **Gap 2 design pass** (together with Gap 5) before any coding.

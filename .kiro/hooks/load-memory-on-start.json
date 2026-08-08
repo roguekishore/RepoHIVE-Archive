@@ -9,7 +9,8 @@
         "type": "command",
         "command": "C:\\Users\\conta\\.local\\bin\\bm.exe tool recent-activity --project personal --timeframe 14d --page-size 8 --type entity",
         "timeout": 60
-      }
+      },
+      "enabled": false
     }
   ]
 }
