@@ -250,6 +250,7 @@ Canonical ID string forms (a stable, human-legible scheme):
 | function | `func:` + enclosing-class FQN + `#` + name + `(` + comma-joined param types + `)` | `func:com.example.UserService#save(com.example.User)` |
 
 - The enclosing-type chain uses `$` for nesting (mirrors JVM binary-name convention) so nested types are unambiguous.
+- **Source-root scope (Fix 24 — Gap 2):** `class`/`function` IDs carry an optional `<sourceRoot>|` prefix (e.g. `class:src/test/java|com.example.A`) so the same FQN declared under two source roots — separate modules, or `src/main` vs `src/test` — yields distinct IDs. The source root is derived from the package↔directory correspondence, with a full-file-path fallback when they diverge; an empty scope (repository-root source root) omits the prefix so single-root IDs are unchanged. `file` IDs are never scoped. See Property 11.
 - Overloads differ because the parameter-type list is part of the function ID (R3.4).
 - Because IDs are pure functions of file content + relative location, re-parsing an unchanged file yields identical IDs across runs (R3.11).
 - **Uniqueness within a run:** the extractor asserts no two distinct nodes produce the same ID. If a genuine collision arises (e.g. two top-level types illegally sharing an FQN, which the Symbol_Table also handles), the deterministic tie-break in R4.5 governs symbol resolution while the node set still holds distinct nodes only when structurally distinct; identical structural identity means the same entity, so it is created once (R3.12).
@@ -260,7 +261,9 @@ Canonical ID string forms (a stable, human-legible scheme):
 
 ```typescript
 interface SymbolTable {
-  lookup(fqn: string): NodeId | null;   // not-found returns null, never throws (R4.7)
+  lookup(fqn: string): NodeId | null;                         // canonical-first across scopes; null, never throws (R4.7)
+  lookupInScope(scope: string, fqn: string): NodeId | null;   // classpath-local resolution (Fix 24 — Gap 2)
+  lookupAcrossScopes(fqn: string): readonly NodeId[];         // cross-root fallback, canonical order (Fix 24 — Gap 2)
 }
 interface SymbolTableBuilder {
   build(nodes: GraphNode[]): SymbolTable;
@@ -450,6 +453,11 @@ Any recorded error results in zero bytes written and any pre-existing `graph.jso
 Zero-node and zero-edge projects still emit a well-formed, reproducible single JSON value.
 
 **Validates: Requirements 8.2, 8.3, 8.6, 9.7**
+
+### Property 11: Source-root-scoped identity and resolution (Fix 24 — Gap 2)
+For any two entities sharing a fully qualified name but defined under different source roots, their `class`/`function` ids differ: the id carries a `<sourceRoot>|` scope prefix (an empty scope — a repository-root source root — omits the prefix, and a Java FQN never contains `|`, so the boundary is unambiguous). `file` ids are never scoped. The source root is derived purely from the package↔directory correspondence, with a full-file-path fallback that is globally unique, so the scheme is total. Resolution is scope-aware: a reference resolves within the referring file's own source root first (Java classpath semantics), then across roots by FQN — a single cross-root match links a genuine cross-module edge, while several matches resolve deterministically to the byte-first candidate with the ambiguity recorded (never a silent wrong edge). The residual backstop is the serializer's global uniqueness gate: any id collision that survives scoping fails loud, naming both defining files, rather than corrupting the graph.
+
+**Validates: Requirements 3.12 (multi-source-root id uniqueness), 4.5 (scoped collision resolution)**
 
 ## Testing Strategy
 
