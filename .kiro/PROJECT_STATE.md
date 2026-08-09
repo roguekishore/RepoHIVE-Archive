@@ -7,31 +7,34 @@
 
 ## Current position
 
-- **Phase:** Wave A — **COMPLETE and MERGED to `main`** (`ce1f797`, 2026-08-08, pushed).
-  Closed Gaps 16, 1a, 1c. **The preserve branch now fires on real Java:**
-  `vantage` (158-file Spring Boot): 20 regions → **preserve 10 / reconstruct 10** (was 0/20).
-  Suite: **204 green** (84 core + 120 parser), 0 failing. Deterministic SHA-256 confirmed.
-- **Recently done:** (2026-08-06) Wave A engine gap fixes on `parser-hardening`:
-  - **Gap 16** (core): strength-aware degenerate guards in `assessor.ts` + `community.ts`.
-    Prevents singleton explosion when intra-region edges carry zero strength.
-  - **Gap 1a** (parser): type-use edge extraction — `collectTypeReferences` walk in
-    `ast-extractor.ts`; `sharedTypeCount` now populated from field/param/return/extends/implements/new
-    type positions. 12 new parser tests.
-  - **Gap 1c** (parser): same-package simple-name resolution in `stitcher.ts` via per-file
-    import index + JLS-precedence candidate list (single-type import → same package → wildcard).
-    6 new stitcher tests.
-  - Re-parsed and re-indexed `vantage` (341 edges, up from 128) and `sample-java-project` (6 edges).
-  - 11 commits on `parser-hardening`; suite grew from 181 → 204.
-- **Next review:** **Second Review — owner-stated ~12–14.08.2026** (Review 2 has NOT happened yet).
-  Deliverable: the *algorithm* — now demonstrable with preserve firing on real Java.
-  **`.kiro/steering/review-timeline.md` is stale** (lists Review 2 as 15.07 and Review 3 as 10.08);
-  do not plan from it until steering gets its consolidated update.
-- **Next action:** two independent tracks —
-  (a) **Public repo split** (see `docs/plan/public-repo-replay-plan.md` + `docs/plan/replay/`): rename
-  this repo to `repo-hive-archive`, make it private, create public `repohive`, replay 69 scrubbed
-  commits over 12 days.
-  (b) **Wave B** (`parser-identity`) per `docs/plan/agent-fix-protocol.md` — **blocked on a Gap 2 design
-  pass**, which must be done together with Gap 5.
+- **Phase:** Wave B — `parser-identity` — **COMPLETE** (2026-08-09), awaiting owner merge to `main`.
+  All seven Wave-B gaps done: **7, 6, 4, 5** (structural qualified names, type-driven param lists,
+  scope-aware identity, `$$` escaping + uniqueness gate — done by the parallel-window agent) and
+  **2, 8, 19** (source-root-scoped identity + resolution, static-import map-up, collector exclusions).
+  Suite: **257 green** (84 core + 173 parser), 0 failing. Determinism holds; new SHA-256 digest
+  `f3be011b…` (was `ca6992db…` — id format changed by scoping).
+- **Headline result:** `fixtures/broadleaf` — the mature multi-module repo that previously **crashed**
+  `group` with `duplicate node identifier` — now **parses (29190 nodes / 14325 edges) and groups
+  (502 regions → preserve 38 / reconstruct 464, depth 6)**. Gap 2 (source-root-scoped identity)
+  removed the collision; the adaptive preserve branch fires on real multi-module Java.
+- **Recently done:** (2026-08-09) Wave B on `parser-identity`:
+  - **Gap 2** (Fix 24, 6 commits): `deriveSourceRoot` helper; `class`/`function` ids gain a
+    `<sourceRoot>|` scope prefix (empty scope omits it → single-root ids unchanged); scope-aware symbol
+    table (`lookupInScope` / `lookupAcrossScopes`); stitcher resolves same-source-root first then
+    byte-first cross-root with recorded ambiguity; spec Property 11.
+  - **Gap 8** (Fix 10, Option A — owner-approved reduced scope): static-member imports map up to the
+    enclosing class. (Nested-type and wildcard imports were already resolving after Wave A + Gap 5 —
+    verified by reproduction, so their parts of Fix 10 were correctly skipped.)
+  - **Gap 19** (Fix 16): default-on collector exclusions (`.git`/`target`/`build`/`node_modules`/…),
+    overridable via `--include-generated` / `--exclude`, skipped-dir count reported.
+  - Re-parsed/re-indexed all fixtures: `vantage` 344 edges (was 341), preserve 10 / reconstruct 10;
+    `sample-java-project` 6 edges; `broadleaf` as above.
+- **Next action:**
+  (a) **Owner merges `parser-identity` → `main` (`--no-ff`)** — Wave B milestone (agent must not merge).
+  (b) **Recapture `docs/2nd/review-2-demo-guide.md`** if its synthetic Demo A/B repos are affected by the
+  new id format — its numbers were NOT auto-updated (per the protocol's "do not silently edit the demo
+  guide"); re-run those demos and check before the review.
+  (c) Remaining engine waves C/D (`engine-integrity`, `engine-audit`) per `docs/plan/agent-fix-protocol.md`.
 
 ---
 

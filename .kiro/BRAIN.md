@@ -446,3 +446,33 @@
 - **Next:** Owner runs the prerequisites (commit hooks, rename, private, create `repohive`, install
   `git-filter-repo`), then `01-setup-staging.ps1` and checks its acceptance test. In parallel, Wave B
   needs a **Gap 2 design pass** (together with Gap 5) before any coding.
+
+
+## 2026-08-09 17:06 — Wave B (`parser-identity`) complete
+
+Closed the remaining Wave-B gaps on `parser-identity` (7/6/4/5 had already been done by the
+parallel-window agent; verified green at 231 tests before starting).
+
+- **Gap 2 (Fix 24)** — designed it first (no prior design existed; wrote it into
+  `docs/fixes-signal-enrichment.md` as Fix 24, paired with Gap 5). Then implemented in 6 granular
+  commits: `deriveSourceRoot` (package↔directory correspondence, full-path fallback); `class`/`function`
+  ids gain a `<sourceRoot>|` prefix (empty scope omits it, so single-root ids are unchanged; the FQN
+  never contains `|` so the boundary is the last `|`); scope-aware symbol table
+  (`lookupInScope`/`lookupAcrossScopes`, `lookup` kept canonical-first for compat); stitcher resolves
+  same-source-root first, then byte-first cross-root with the ambiguity recorded on
+  `ParseSuccess`+CLI; spec Property 11. **Adapted from the design where the code had moved**: Gap 5
+  kept id-slicing (not a structural descriptor), so I derive scope by splitting the id on the last `|`
+  and derive the referring scope with the same helper — behaviourally identical, simpler.
+- **Gap 8 (Fix 10)** — reproduced first: nested-type and wildcard imports already resolve (Wave A
+  Gap 1a/1c + Gap 5's dotted keys), and full wildcard expansion would over-connect, so per §7 I stopped
+  and escalated. Owner chose Option A: implement only the static-member map-up-to-enclosing-class.
+- **Gap 19 (Fix 16)** — default-on collector exclusions (build/VCS/generated), overridable via
+  `--include-generated` / `--exclude`, skipped-dir count on `ParseSuccess`+CLI.
+
+**Verified by re-running the pipeline, not notes:** all fixtures re-parsed; determinism holds
+(digest `f3be011b…`); suite **257 green** (84 core + 173 parser). `broadleaf` goes from a hard
+`duplicate node identifier` crash to full parse+group (502 regions, preserve 38 / reconstruct 464).
+
+Also updated `docs/plan/agent-fix-protocol.md` (stale merge banner, locked Gap 5/19 decisions,
+Gap 2 pointer to Fix 24). **Left for the owner:** merge `parser-identity` → `main`; recapture
+`docs/2nd/review-2-demo-guide.md` if its synthetic demos changed (not silently edited).
