@@ -29,12 +29,23 @@
     overridable via `--include-generated` / `--exclude`, skipped-dir count reported.
   - Re-parsed/re-indexed all fixtures: `vantage` 344 edges (was 341), preserve 10 / reconstruct 10;
     `sample-java-project` 6 edges; `broadleaf` as above.
-- **Next action:**
-  (a) **Owner merges `parser-identity` → `main` (`--no-ff`)** — Wave B milestone (agent must not merge).
-  (b) **Recapture `docs/2nd/review-2-demo-guide.md`** if its synthetic Demo A/B repos are affected by the
-  new id format — its numbers were NOT auto-updated (per the protocol's "do not silently edit the demo
-  guide"); re-run those demos and check before the review.
-  (c) Remaining engine waves C/D (`engine-integrity`, `engine-audit`) per `docs/plan/agent-fix-protocol.md`.
+- **Next action — PIVOT to the viewer (owner decision 2026-08-09):** build `phase-3-viewer` first for a
+  visual demo; the remaining engine gaps can wait (the JSON contract is the stable seam, so later fixes
+  change `index/` *numbers*, never its *shape* — the viewer won't need rework). Plan:
+  (a) **Do NOT merge to `main` yet.** Rebase `phase-3-viewer` on top of `parser-identity` and continue the
+  viewer there — it reads the improved `index/` with no main churn.
+  (b) Build the semantic-zoom viewer over `index/` + the flat baseline. Vendored packages stay as-is
+  (avoid import breakage); gate the surface via the sidebar to show only working features.
+  (c) **Group naming is DEFERRED — full design captured in `docs/group-naming.md`.** For the demo, derive
+  Tier-1 structural labels viewer-side (preserve → package name; reconstruct → common-prefix/hub + count).
+  Fix 6 (server-side labels) and the LLM sidecar are post-demo.
+  (d) Viewer must render labels from `packagePath` + simple name, **never the raw (now-scoped) id**.
+- **Deferred (documented, not forgotten):**
+  - **Group naming** → `docs/group-naming.md` (Tier-1 structural now / Fix 6 / LLM sidecar keyed by `g_<hash>`).
+  - **Owner merge** `parser-identity` → `main` (`--no-ff`) — do at/after the viewer milestone.
+  - **Recapture `docs/2nd/review-2-demo-guide.md`** — it predates Wave A; rebuild around broadleaf/vantage
+    (real preserve-vs-reconstruct) rather than the removed synthetic `mixed-quality-graph.json`.
+  - Engine waves C/D (`engine-integrity`, `engine-audit`) per `docs/plan/agent-fix-protocol.md`.
 
 ---
 

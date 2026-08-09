@@ -476,3 +476,29 @@ parallel-window agent; verified green at 231 tests before starting).
 Also updated `docs/plan/agent-fix-protocol.md` (stale merge banner, locked Gap 5/19 decisions,
 Gap 2 pointer to Fix 24). **Left for the owner:** merge `parser-identity` → `main`; recapture
 `docs/2nd/review-2-demo-guide.md` if its synthetic demos changed (not silently edited).
+
+
+## 2026-08-09 18:06 — Pivot to the viewer; group-naming parked (documented)
+
+Owner decision: build `phase-3-viewer` next for a visual demo, ahead of the remaining engine gaps
+(waves C/D). Rationale: the engine is demo-grade (broadleaf groups: 502 regions, preserve 38 /
+reconstruct 464; vantage 20 regions preserve 10/10) but invisible; the viewer is the payoff beat and a
+scheduled review deliverable; and the JSON contract is the stable seam, so later gap fixes change
+`index/` numbers, not shape — the viewer won't need rework.
+
+Mechanics agreed: **do not merge to `main` yet** — rebase `phase-3-viewer` on top of `parser-identity`
+and continue there. The parked viewer's over-scope (broad `api-client`: health/churn/git/chat/costs) is
+**intentional** — everything vendored to avoid import breakage in a short window; only working features
+enabled via the sidebar. Viewer must render labels from `packagePath` + simple name, never the raw
+(now-scoped) id.
+
+**Group naming** surfaced while discussing the viewer: `group` nodes (`g_<sha1>`) carry no
+label/provenance — only a content-hash id (this is Gap 12 / Fix 6 for the structural tier, plus the
+deferred embeddings-for-naming roadmap item for the semantic tier). **Parked with a full design in
+`docs/group-naming.md`**: the firewall rule (naming is downstream of grouping, never feeds back);
+Tier-1 deterministic structural labels (preserve → package, reconstruct → common-prefix/hub — small,
+demo-grade, viewer-side now / Fix 6 later); Tier-2 semantic (TF-IDF deterministic, or LLM prose as a
+sidecar keyed by `g_<hash>`, off the deterministic index). Sizing recorded. Resume after the viewer.
+
+No code changed in this session's tail — documentation + state only. Wave B remains complete on
+`parser-identity` (257 green, determinism `f3be011b…`).
