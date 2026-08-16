@@ -581,6 +581,12 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 1.7** (closes Gap 13)
 
+### Property 41: Index writes are all-or-nothing
+
+*For any* Hierarchy and any single injected write failure while staging the Index_File_Set, the target directory's content equals its pre-run content byte-for-byte, and no staging artifact remains. Promotion itself is a sequence of same-directory renames, which cannot fail for space or content reasons; the one residual case — a read-only existing member file — is probed before staging and so fails before the target is touched.
+
+**Validates: Requirements 9.8** (closes Gap 10)
+
 ### Property 40: The containment tree's invariants are re-established on read
 
 *For any* Index_File_Set, the Index_Parser accepts it only if its containment links form a single-rooted, acyclic tree whose root is `repositoryId`, in which every node is reachable from that root exactly once, every child's level is its parent's level plus one, and every `childIds` array is strictly ascending. These are Property 19's invariants, verified on parse as well as on build, because `index/` is a seam that untrusted or hand-edited files pass through.

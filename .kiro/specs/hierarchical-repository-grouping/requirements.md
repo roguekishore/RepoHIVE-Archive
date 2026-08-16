@@ -174,7 +174,8 @@ The Region concept is intentionally general in these requirements (package, modu
 6. IF the Index_Parser reads an Index_File_Set that is missing one or more required member files, THEN THE Index_Parser SHALL return an error message naming each missing file and SHALL NOT return a partial Hierarchy.
 7. IF the Index_Parser reads an Index_File_Set in which a member file contains malformed JSON or is missing a required field, THEN THE Index_Parser SHALL return an error message identifying the affected file and SHALL NOT return a partial Hierarchy.
 8. IF the Index_Serializer cannot write a member file of the Index_File_Set, THEN THE Index_Serializer SHALL return an error message identifying the file that could not be written.
-
+8. WHEN writing the Index_File_Set, THE Index_Serializer SHALL either write all five member files or leave the target location exactly as it was, such that a failure part-way through never leaves a mixture of files from different runs. THE Index_Serializer SHALL render every payload and stage the complete set before modifying the target, and SHALL leave no staging artifact behind on any path.
+9. WHEN reading an Index_File_Set, THE Index_Parser SHALL verify that the node count, edge count, hierarchy depth, and total Cross_Group_Edge count stated in repository.json and metadata.json agree with the Hierarchy reconstructed from hierarchy.json and edges.json, and SHALL report a malformed-file error naming the disagreeing file otherwise.
 ### Requirement 10: Blast Radius Analysis
 
 **User Story:** As a developer using the hierarchy, I want to query the blast radius of a modified node, so that I can see which files, functions, and hierarchy regions a change would impact.
