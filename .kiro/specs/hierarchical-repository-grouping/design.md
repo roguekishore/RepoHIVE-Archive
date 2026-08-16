@@ -581,6 +581,12 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 1.7** (closes Gap 13)
 
+### Property 37: Every accepted graph has at most one edge per ordered pair
+
+*For any* Dependency_Graph the Graph_Ingestor accepts, the number of distinct ordered `(source, target)` pairs among its edges equals the edge count. Edge multiplicity is therefore always 1, so the cohesion accumulator — which sums strength per edge — and the modularity projection — which folds parallel edges into one weighted edge — observe the same graph.
+
+**Validates: Requirements 1.10** (closes Gap 15)
+
 ## Error Handling
 
 Errors are returned as values via the `Result<T, GroupingError>` union rather than thrown, so every error path is type-checked and testable. The pipeline fails fast and atomically — a stage that detects invalid input returns an error and produces no partial output, leaving any prior state unchanged.
