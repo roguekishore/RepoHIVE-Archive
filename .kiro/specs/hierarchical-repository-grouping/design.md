@@ -581,6 +581,12 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 1.7** (closes Gap 13)
 
+### Property 38: No exception escapes a public entry point (Fix 2 — Gap 3)
+
+*For any* input, including adversarially malformed input and a collaborator that throws, the Grouping_System's public entry points return a `Result` rather than throwing: an unexpected failure becomes an `INTERNAL_ERROR` value and no partial output is produced. The Index_Parser likewise reports a malformed-file error for a non-object array element instead of raising while reading its fields.
+
+**Validates: Requirements 12.1, 12.2, 12.3** (closes Gap 3)
+
 ### Property 37: Every accepted graph has at most one edge per ordered pair
 
 *For any* Dependency_Graph the Graph_Ingestor accepts, the number of distinct ordered `(source, target)` pairs among its edges equals the edge count. Edge multiplicity is therefore always 1, so the cohesion accumulator — which sums strength per edge — and the modularity projection — which folds parallel edges into one weighted edge — observe the same graph.

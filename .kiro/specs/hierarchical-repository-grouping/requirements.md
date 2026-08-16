@@ -201,3 +201,13 @@ The Region concept is intentionally general in these requirements (package, modu
 3. THE Grouping_System SHALL record, in metadata.json, for each hierarchy level the count of Group_Nodes and Leaf_Nodes present at that level and the count of leaf-level edges and Cross_Group_Edges present at that level, so that the scalability of the hierarchical output can be compared against the flat graph.
 4. THE Grouping_System SHALL record, in metadata.json, the total visible node count per level, the total Cross_Group_Edge count across the Hierarchy, and the average branching factor of the Group_Nodes, so that the scalability improvement of the hierarchical output over the flat graph can be quantified.
 5. WHEN locating any specific File node by traversing from the Repository node along its single path of ancestor Group_Nodes, THE Hierarchy SHALL require no more than one expansion operation per Group_Node level on that path, and SHALL require no more expansion operations than the number of Group_Node levels between the Repository node and that File node.
+
+### Requirement 12: Structured Error Reporting Without Exceptions
+
+**User Story:** As an engine user, I want every failure reported as a value I can inspect, so that a malformed input costs me an error message rather than a crashed run with a stack trace.
+
+#### Acceptance Criteria
+
+1. THE Grouping_System SHALL return every failure as a structured `GroupingError` value from its public entry points — graph grouping, index writing, and index parsing — and SHALL NOT propagate an exception across them.
+2. IF an unexpected internal failure occurs inside a public entry point, THEN THE Grouping_System SHALL convert it into a structured error identifying the nature of the failure, and SHALL produce no partial output.
+3. WHEN a parsed Index_File_Set contains an array element that is not an object, THE Index_Parser SHALL report a malformed-file error naming the file rather than raising an exception while reading that element's fields.

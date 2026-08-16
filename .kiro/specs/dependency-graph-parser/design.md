@@ -454,6 +454,12 @@ Zero-node and zero-edge projects still emit a well-formed, reproducible single J
 
 **Validates: Requirements 8.2, 8.3, 8.6, 9.7**
 
+### Property 12: No exception escapes a public entry point (Fix 2 — Gap 3)
+
+*For any* input, including adversarially malformed input and a collaborator that throws, `parseProject` returns a `Result` rather than throwing or rejecting: an unexpected failure is converted into an `internal-error` Parse_Error and nothing is written. A source path that cannot be represented inside a node identifier is a *recoverable* per-file error with parity to an unreadable file — named, skipped, and the walk continues — rather than a fatal crash.
+
+**Validates: Requirements 10.7, 10.8**
+
 ### Property 11: Source-root-scoped identity and resolution (Fix 24 — Gap 2)
 For any two entities sharing a fully qualified name but defined under different source roots, their `class`/`function` ids differ: the id carries a `<sourceRoot>|` scope prefix (an empty scope — a repository-root source root — omits the prefix, and a Java FQN never contains `|`, so the boundary is unambiguous). `file` ids are never scoped. The source root is derived purely from the package↔directory correspondence, with a full-file-path fallback that is globally unique, so the scheme is total. Resolution is scope-aware: a reference resolves within the referring file's own source root first (Java classpath semantics), then across roots by FQN — a single cross-root match links a genuine cross-module edge, while several matches resolve deterministically to the byte-first candidate with the ambiguity recorded (never a silent wrong edge). The residual backstop is the serializer's global uniqueness gate: any id collision that survives scoping fails loud, naming both defining files, rather than corrupting the graph.
 
