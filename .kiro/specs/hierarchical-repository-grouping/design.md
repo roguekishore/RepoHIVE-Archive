@@ -569,6 +569,18 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 7.1, 7.2, 7.5** (closes Gap 17)
 
+### Property 35: Canonical edge order is independent of input position, whatever the signal values
+
+*For any* set of dependency edges, including parallel edges over the same `(source, target)` pair and including signal values that violate the contract's field types, sorting with the canonical edge comparator yields a byte-identical serialization for the edge array and for any permutation of it. The comparator is a total order — antisymmetric and transitive — on every input, so a stable sort never falls back to input position.
+
+**Validates: Requirements 7.2** (closes Gap 13)
+
+### Property 36: Field validation never rejects a conforming graph
+
+*For any* Dependency_Graph whose nodes and edges conform to the shared JSON contract's field types, the Graph_Ingestor accepts it and the resulting model's node and edge counts equal the input's — the field-validity gate of R1.7 rejects only genuine violations.
+
+**Validates: Requirements 1.7** (closes Gap 13)
+
 ## Error Handling
 
 Errors are returned as values via the `Result<T, GroupingError>` union rather than thrown, so every error path is type-checked and testable. The pipeline fails fast and atomically — a stage that detects invalid input returns an error and produces no partial output, leaving any prior state unchanged.
