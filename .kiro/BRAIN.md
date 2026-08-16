@@ -544,3 +544,46 @@ No code changed in this session's tail — documentation + state only. Wave B re
   resolved `dist/` to `dist/index.js` and reported 1 passing test instead of scanning. Every "green
   before commit" gate depended on this.
 - **Next:** Wave D (`engine-audit`): gaps 9, 20, 22, 21, 18, 12, then the viewer finish.
+
+---
+
+## 2026-08-16 17:30 — Wave D (`engine-audit`) complete on `fable-work`
+
+- **What:** closed all six Wave-D gaps in order — **9, 20, 22, 21, 18, 12** — on `fable-work`.
+  Every run is now configurable, reproducible from its own audit record, and every group nameable.
+- **Decision/Outcome:**
+  - **Gap 9** — one `validateConfig` gate at the top of `groupGraph`, *before* ingest (asserted with a
+    detector that must never be called). Boundary domain is **finite only**, per the pre-decided
+    default: `NaN`/`±Infinity` are what actually break the comparison, while `1.000001` is how
+    `demo-baselines` expresses all-reconstruct. `stableStringify` now **refuses non-finite numbers**, so
+    a `NaN` can never again reach `metadata.json` as the `null` that `parseIndex` rejects.
+  - **Gap 20** — dependency-free flag parsing on `group-cli` (`--boundary`, `--seed`, weights,
+    coefficients, `--squash-k`, `--degenerate-score`, `--preserve`/`--reconstruct`, `--out`, `--help`),
+    all validated through Gap 9's gate. **Unknown flags and extra positionals are now errors** — silently
+    ignoring them turned a sweep typo into a default-parameter run that looked successful. `main(argv)`
+    returns an exit code, so the CLI is testable without spawning a process; there were **no CLI tests
+    at all** before. Verified live: boundary 0 → preserve 4/4, 0.3 → preserve 1/4, 1.000001 →
+    reconstruct 4/4. **Req 4.4 is now met without code changes.** Also split `FILE_NOT_FOUND` from
+    `MALFORMED_FILE`.
+  - **Gap 22** — nested `configuration` block carrying the **resolved** config (only a fully-defaulted
+    record is a reproduction recipe); override Map → plain object with sorted keys, since a Map
+    stringifies to `{}`. Also corrected `activeWeights` to drop the modularity weight when Q could not
+    be computed, which contradicted Req 3.7's "weights used".
+  - **Gap 21** — documented as an intentional forward-compatibility placeholder in code and spec, per
+    the pre-decided default. No behaviour change.
+  - **Gap 18** — reproduced the vacuous report first (`runs: 0` → `sha-256: undefined` +
+    `DETERMINISTIC`, exit 0). `runs` validated as an integer **≥ 2** (one run is as vacuous as zero), and
+    the verdict stated positively: right number of digests, each a well-formed SHA-256, all equal.
+    Extracted as `compareRunDigests` and unit-tested. Same treatment for the parser demo, whose bug was
+    *silent coercion* of a bad `runs` to 3.
+  - **Gap 12** — `regionId` + `ordinal` on group nodes, `groupIds` on each region decision; all optional
+    and validated when present. **One ordinal counter per region spanning both levels**, because
+    per-level counters restart at 0 and would make two different boxes indistinguishable — the one thing
+    the ordinal exists to prevent. Labels stay out of the engine.
+- **Suite:** 297 → **334 green** (153 core + 181 parser), 0 failing.
+- **Digests recaptured** (both moved for legitimate output-shape reasons — Gap 22's `configuration`
+  block and Gap 12's provenance fields; the determinism *property* is unchanged):
+  - `fixtures/sample-java-project` **group**: `f3be011b…` → **`f30c7b3dfe38c476ada89a1175036cd36e1e623a08efc79345fd79beb3b4b5b3`**
+  - `fixtures/sample-java-project` **parse**: `a603b667abf1d7c903280a5ea661cae7087ecc90b9bafcfa9fbae25e7a6cccbc` (unchanged — no parser output-shape change in Wave D)
+- **Next:** viewer finish — wire Gap 12's real `regionId` provenance in place of the package-prefix
+  heuristic, add `NOTICE`, verify the three surfaces render.
