@@ -68,7 +68,7 @@ output, never generated.
 
 ---
 
-## Figure 1 — The problem and the transformation
+## Figure 1: The problem and the transformation
 
 **Purpose.** The opening contrast: an unreadable flat graph on the left, the
 navigable hierarchy on the right, with the transformation between them. This is
@@ -116,7 +116,7 @@ the figure that has to make the problem obvious in one glance.
 
 ---
 
-## Figure 2 — The pipeline and the contract seam
+## Figure 2: The pipeline and the contract seam
 
 **Purpose.** Shows that the stages never call each other: they hand off through
 JSON artifacts, and consumers read the index without the engine knowing them.
@@ -163,7 +163,7 @@ Note that the viewer is named abstractly here. Do not name any UI framework.
 
 ---
 
-## Figure 3 — The six-stage grouping algorithm
+## Figure 3: The six-stage grouping algorithm
 
 **Purpose.** The whole algorithm on one line, including the configuration gate
 that runs before any work and the audit record that the quality-bearing stages
@@ -222,7 +222,7 @@ write into. Those two elements carry the reproducibility argument.
 
 ---
 
-## Figure 4 — The preserve versus reconstruct decision
+## Figure 4: The preserve versus reconstruct decision
 
 **Purpose.** The paper's central contribution in one diagram: the per-region
 decision, the override path, and the fact that both the applied and the
@@ -281,7 +281,7 @@ crowded out a page.
 
 ---
 
-## Figure 5 — The multi-level hierarchy
+## Figure 5: The multi-level hierarchy
 
 **Purpose.** Shows the shape of the output and the level numbering, and that
 class and function members hang under their defining file.
@@ -320,7 +320,7 @@ class and function members hang under their defining file.
 
 ---
 
-## Figure 6 — The contract data model
+## Figure 6: The contract data model
 
 **Purpose.** The stable seam. Note this must include the region provenance
 fields on the hierarchy node and the decision, and the resolved configuration on
@@ -391,7 +391,7 @@ multiplicity label; the v1 version rendered it as "manv".
 
 ---
 
-## Figure 7 — Blast radius as reverse reachability
+## Figure 7: Blast radius as reverse reachability
 
 **Purpose.** Shows that a query returns the transitive dependents of a target
 plus the groups containing them, and that impact crosses group boundaries.
@@ -439,7 +439,7 @@ plus the groups containing them, and that impact crosses group boundaries.
 
 ---
 
-## Figure 8 — Boundary sensitivity (plot, not generated)
+## Figure 8: Boundary sensitivity (plot, not generated)
 
 **Purpose.** The empirical core of the calibration argument: how sharply
 navigability responds to where the preserve-versus-reconstruct line is drawn.
