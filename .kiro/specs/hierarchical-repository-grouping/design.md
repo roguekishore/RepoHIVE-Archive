@@ -583,6 +583,12 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 1.7** (closes Gap 13)
 
+### Property 43: Group provenance is complete and unambiguous
+
+*For any* Dependency_Graph, every Group_Node derived from a Primary_Region carries that Region's identifier — one that appears in `metadata.regionDecisions` — together with a non-negative integer ordinal, and the `(regionId, ordinal)` pair is unique across the Hierarchy. Every identifier listed in a decision's `groupIds` names a node present in the Hierarchy. Uniqueness is what lets a consumer label two sibling groups of one Region distinguishably; without it the adaptive decision is recorded but not visible.
+
+**Validates: Requirements 9.10** (closes Gap 12)
+
 ### Property 41: Index writes are all-or-nothing
 
 *For any* Hierarchy and any single injected write failure while staging the Index_File_Set, the target directory's content equals its pre-run content byte-for-byte, and no staging artifact remains. Promotion itself is a sequence of same-directory renames, which cannot fail for space or content reasons; the one residual case — a read-only existing member file — is probed before staging and so fails before the target is touched.
