@@ -563,6 +563,12 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 10.7, 10.8**
 
+### Property 34: The engine has exactly one canonical order over identifiers
+
+*For any* pair of identifier strings, including ones containing supplementary-plane characters, the order the Grouping_System sorts by is byte-wise lexicographic over the UTF-8 encoding — the same total order the parser is held to by R9.2/R9.3 — so "canonical order" denotes one order across both packages. For identifiers restricted to ASCII this order coincides with UTF-16 code-unit order, so adopting it leaves existing outputs byte-identical.
+
+**Validates: Requirements 7.1, 7.2, 7.5** (closes Gap 17)
+
 ## Error Handling
 
 Errors are returned as values via the `Result<T, GroupingError>` union rather than thrown, so every error path is type-checked and testable. The pipeline fails fast and atomically — a stage that detects invalid input returns an error and produces no partial output, leaving any prior state unchanged.
