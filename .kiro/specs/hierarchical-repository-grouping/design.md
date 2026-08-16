@@ -491,6 +491,8 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 **Validates: Requirements 6.7, 6.8, 11.1, 11.2**
 
+> **Design note — `minPartitionThreshold` is an intentional placeholder (Gap 21).** `partitionChildren` skips partitioning when `n <= maxGroupSize || n < minPartitionThreshold`, and Requirement 6.8 constrains `minPartitionThreshold` to `[2, maxGroupSize]`. Any `n` small enough to fail the second test therefore already failed the first, so the parameter cannot affect any legal configuration — provably, not merely in the observed cases. This property's "groups below the threshold are left unpartitioned" clause is consequently satisfied vacuously. The knob is retained as forward compatibility: giving it effect would require permitting `minPartitionThreshold > maxGroupSize`, which changes hierarchy shape and needs a requirements amendment, and no use case for leaving moderately-oversized groups intact has been identified. Revisit only if a navigation argument for one emerges.
+
 ### Property 22: Group identifiers are content-addressed, unique, and order-independent
 
 *For any* Group_Node, its identifier is derived solely from its membership, so the same membership always yields the same identifier and distinct memberships yield distinct identifiers — independent of input ordering, counters, timestamps, or random values.
