@@ -559,7 +559,7 @@ These properties were derived from the acceptance-criteria prework analysis, the
 
 ### Property 33: Blast radius traversal terminates and is deterministic
 
-*For any* Hierarchy whose dependency edges may contain cycles, blast-radius traversal visits each node at most once so it terminates, and querying the same node twice on an unchanged Hierarchy returns an identical set of node identifiers.
+*For any* Hierarchy whose dependency edges **or containment links** may contain cycles, blast-radius traversal visits each node at most once — in the dependency traversal *and* in the ancestor climb — so it terminates, and querying the same node twice on an unchanged Hierarchy returns an identical set of node identifiers. The original wording named only dependency-edge cycles, which is what let a containment cycle hang the ancestor climb (Gap 11).
 
 **Validates: Requirements 10.7, 10.8**
 
@@ -580,6 +580,18 @@ These properties were derived from the acceptance-criteria prework analysis, the
 *For any* Dependency_Graph whose nodes and edges conform to the shared JSON contract's field types, the Graph_Ingestor accepts it and the resulting model's node and edge counts equal the input's — the field-validity gate of R1.7 rejects only genuine violations.
 
 **Validates: Requirements 1.7** (closes Gap 13)
+
+### Property 40: The containment tree's invariants are re-established on read
+
+*For any* Index_File_Set, the Index_Parser accepts it only if its containment links form a single-rooted, acyclic tree whose root is `repositoryId`, in which every node is reachable from that root exactly once, every child's level is its parent's level plus one, and every `childIds` array is strictly ascending. These are Property 19's invariants, verified on parse as well as on build, because `index/` is a seam that untrusted or hand-edited files pass through.
+
+**Validates: Requirements 9.7, 10.7** (closes Gap 11)
+
+### Property 39: The Index_Parser accepts every Index_File_Set the Index_Serializer writes
+
+*For any* Hierarchy, serializing it and parsing the result back succeeds. This is the companion to the containment-tree validation of Property 19-on-read: tightening what the parser accepts must never make it reject the engine's own valid output.
+
+**Validates: Requirements 9.5**
 
 ### Property 38: No exception escapes a public entry point (Fix 2 — Gap 3)
 
