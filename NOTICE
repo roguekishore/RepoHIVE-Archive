@@ -1,0 +1,98 @@
+RepoHIVE
+Copyright (C) 2026 the RepoHIVE authors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See LICENSE for the full text.
+
+RepoHIVE was previously distributed under the MIT License. It is relicensed
+under AGPL-3.0-or-later because its viewer is built on vendored packages from
+repowise, which are AGPL-3.0. Copies obtained under the earlier MIT terms remain
+under those terms.
+
+
+================================================================================
+Vendored third-party code
+================================================================================
+
+The four packages below were copied into this repository rather than consumed as
+dependencies. They retain their original copyright and are redistributed under
+their original license. Their per-file headers have not been modified or removed.
+
+--------------------------------------------------------------------------------
+repowise
+--------------------------------------------------------------------------------
+
+  Upstream project    repowise
+  Upstream URL        https://github.com/repowise-dev/repowise
+  Original license    GNU Affero General Public License v3.0 (AGPL-3.0)
+  Copyright           Copyright (c) 2024-2026 Raghav Chamadiya and contributors
+
+  Vendored packages, and the RepoHIVE commit that introduced each:
+
+    packages/ui           upstream @repowise-dev/ui
+                          vendored in 9304da6, 2026-08-05
+                          "feat(ui): vendor ui package and design tokens"
+
+    packages/types        upstream @repowise-dev/types
+                          vendored in be9e89c, 2026-08-05
+                          "feat(types): vendor types package"
+
+    packages/api-client   upstream repowise api client
+                          vendored in 99a1375, 2026-08-05
+                          "feat(api-client): vendor api-client package"
+
+    packages/web          upstream repowise Web UI (Next.js frontend)
+                          vendored in a4c36b2, 2026-08-05
+                          "feat(web): vendor Next.js web application"
+
+  Upstream commit     NOT RECORDED at vendoring time.
+
+    The exact upstream revision these packages were taken from was not captured
+    when they were copied, and it cannot be recovered from this repository. It is
+    stated as unknown rather than guessed, because an incorrect provenance claim
+    is worse than an absent one. Whoever performed the vendoring should replace
+    this line with the upstream commit SHA.
+
+  Modifications by the RepoHIVE authors
+
+    The vendored packages are used as the RepoHIVE viewer and have been modified.
+    Changes are confined to:
+
+      - packages/web/src/lib/repohive/     the index -> canvas adapter and the
+                                           display-label module, both written for
+                                           RepoHIVE
+      - packages/web/src/app/api/graph/    routes reading RepoHIVE's index/ files
+      - packages/web/src/app/repos/        the three RepoHIVE surfaces
+                                           (knowledge graph, flat baseline,
+                                           decision audit)
+      - packages/web/src/components/layout/nav-items.ts
+                                           navigation gating, so only the
+                                           implemented surfaces are reachable
+      - packages/ui/src/zoom/              additive decision fields on the zoom
+                                           node model and their rendering
+
+    All modified files remain under AGPL-3.0. The RepoHIVE engine packages
+    (packages/shared, packages/parser, packages/core) contain no vendored code
+    and never import a vendored package.
+
+
+================================================================================
+Third-party dependencies
+================================================================================
+
+RepoHIVE's engine depends on the following packages, obtained from npm and not
+vendored. Each is distributed under its own license; see its package for the
+full text.
+
+  graphology                      MIT
+  graphology-communities-louvain  MIT
+  graphology-metrics              MIT
+  tree-sitter-java                MIT
+  web-tree-sitter                 MIT
+  fast-check                      MIT   (development only)
+  typescript                      Apache-2.0  (development only)
+
+The viewer's dependency set is that of the vendored repowise packages; see
+packages/web/package.json and packages/ui/package.json.
