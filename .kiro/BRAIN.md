@@ -502,3 +502,45 @@ sidecar keyed by `g_<hash>`, off the deterministic index). Sizing recorded. Resu
 
 No code changed in this session's tail — documentation + state only. Wave B remains complete on
 `parser-identity` (257 green, determinism `f3be011b…`).
+
+---
+
+## 2026-08-16 17:07 — Wave C (`engine-integrity`) complete on `fable-work`
+
+- **What:** closed all seven Wave-C gaps in order — **17, 13, 14, 15, 3, 11, 10** — on branch
+  `fable-work` (cut from `phase-3-viewer`). 23 commits, each independently green.
+- **Why:** determinism had to be bulletproof and no input allowed to crash, hang, or silently corrupt
+  a run, before Wave D's audit work builds on it.
+- **Decision/Outcome:**
+  - **Gap 17** — one canonical order for the engine: byte-wise UTF-8, defined once in
+    `packages/shared/src/canonical-order.ts`; parser's `compareUtf8`/`compareByteWise` and core's
+    `compareIds` all delegate. Cross-package property tests on both sides prevent re-divergence.
+  - **Gap 13** — field-validity walk at the ingest gate (`R1.7`); `MALFORMED_NODE`/`MALFORMED_EDGE`.
+    `compareDependencyEdges` made a total order — this took **three** passes: NaN-safety, then a
+    string tiebreak, then rendering that tiebreak with `JSON.stringify` rather than `String`, because
+    `String` collapses `"2"` and `2` while the serializer emits them differently. Property 35 caught
+    it as an intermittent failure; a 20k-case harness pinned the counterexample.
+  - **Gap 14** — input kinds narrowed to file/class/function (`R1.8`); at least one `file` node
+    required (`R1.9`). Contract type split (`RawNodeKind`) deliberately NOT done — owner's call.
+  - **Gap 15** — parallel duplicate edges **rejected** (`R1.10`), scanned in canonical order so the
+    error value itself is input-order-independent. `assessor.ts` untouched: with multiplicity 1 the
+    cohesion accumulator and the modularity projection already see the same graph.
+  - **Gap 3** — cause + backstop. Path representability decided at discovery (`path-unsupported`,
+    recoverable, parity with `file-unreadable`); boundary `catch` on every public entry point
+    (`internal-error` / `INTERNAL_ERROR`); `parseIndex` array elements guarded; detector preconditions
+    enforced; `parse-cli` given a real `.catch`.
+  - **Gap 11** — one BFS on read establishes single-rootedness, acyclicity, reachability and level
+    monotonicity; blast-radius ancestor climb given its own visited set (breaks, per Req 10.7).
+  - **Gap 10** — index write is all-or-nothing: render in memory → probe writability → stage into a
+    **content-named** sibling dir → promote by rename. Filesystem deps injected (the write path was
+    previously untestable, which is why the hazard survived). Read side cross-checks counts.
+- **Residual, recorded honestly:** promotion is five same-directory renames; a failure *between* them
+  can still leave a mixture. That is inherent to the recommended design (the full directory swap was
+  rejected for its no-index window). Every realistic failure now happens during staging instead.
+- **Suite:** 257 → **297 green** (118 core + 179 parser), 0 failing. Determinism digest for
+  `fixtures/sample-java-project` **unchanged at `f3be011b…`** through all seven gaps — the intended
+  result, since every Wave-C change is either ASCII-invariant or on a rejection path.
+- **Also fixed (prerequisite):** `npm test` was silently vacuous on Node 21+ — `node --test dist/`
+  resolved `dist/` to `dist/index.js` and reported 1 passing test instead of scanning. Every "green
+  before commit" gate depended on this.
+- **Next:** Wave D (`engine-audit`): gaps 9, 20, 22, 21, 18, 12, then the viewer finish.
