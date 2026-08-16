@@ -7,7 +7,31 @@
 
 ## Current position
 
-- **Phase:** Wave B — `parser-identity` — **COMPLETE** (2026-08-09), awaiting owner merge to `main`.
+- **Phase:** Waves **C** (`engine-integrity`) and **D** (`engine-audit`) — **COMPLETE** (2026-08-16) on
+  branch `fable-work`, plus the **viewer finish**. All 13 remaining gaps are closed:
+  Wave C **17, 13, 14, 15, 3, 11, 10**; Wave D **9, 20, 22, 21, 18, 12**.
+  Suite: **354 green** (153 core + 181 parser + 20 web), 0 failing. Determinism holds.
+  **Recaptured digests** for `fixtures/sample-java-project`:
+  - group: `f30c7b3dfe38c476ada89a1175036cd36e1e623a08efc79345fd79beb3b4b5b3`
+    (was `f3be011b…`; moved legitimately — `metadata.json` gained Gap 22's `configuration` block and
+    `nodes.json` gained Gap 12's `regionId`/`ordinal`)
+  - parse: `a603b667abf1d7c903280a5ea661cae7087ecc90b9bafcfa9fbae25e7a6cccbc` (unchanged)
+  See `BRAIN.md` for the two wave entries. Awaiting owner review; **not merged** anywhere.
+- **Viewer:** the group→region **package-prefix heuristic is gone**. Gap 12's `regionId`/`ordinal` on
+  group nodes and `groupIds` on each decision now drive the decision badge, the summary, the audit
+  table's cross-link, and the group label (`service (1 of 2)`). Verified on both branches against the
+  committed fixture: boundary 0.5 → every group an exact `reconstruct`; boundary 0 → exact `preserve`.
+  All three surfaces render (Knowledge Graph, Flat baseline, Decision audit). `NOTICE` added.
+- **Two things a reader should know:**
+  1. `npm test` was **silently vacuous on Node 21+** — `node --test dist/` resolved `dist/` to
+     `dist/index.js` and reported 1 passing test instead of scanning the directory. Fixed first, since
+     every "green before commit" gate depended on it. On Node 20 the old form worked, which is why it
+     went unnoticed.
+  2. The index write's **promotion phase** is five same-directory renames; a failure *between* them can
+     still leave a mixture. That is inherent to the chosen design (the full directory swap was rejected
+     for its no-index window). Every realistic failure now happens during staging instead, before the
+     target is touched at all.
+- **Superseded phase:** Wave B — `parser-identity` — **COMPLETE** (2026-08-09), awaiting owner merge to `main`.
   All seven Wave-B gaps done: **7, 6, 4, 5** (structural qualified names, type-driven param lists,
   scope-aware identity, `$$` escaping + uniqueness gate — done by the parallel-window agent) and
   **2, 8, 19** (source-root-scoped identity + resolution, static-import map-up, collector exclusions).
