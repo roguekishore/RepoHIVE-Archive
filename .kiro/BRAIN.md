@@ -12,11 +12,28 @@
 > - **Timestamps must be the real system date+time in 24-hour format** — run
 >   `Get-Date -Format 'yyyy-MM-dd HH:mm'` first and stamp each entry with the full `YYYY-MM-DD HH:mm`.
 >   NOT the conversation's start date. A single conversation can span many real days/times; always verify.
-> - This complements, not replaces: `PROJECT_STATE.md` = current snapshot; `PROJECT_PLAN.md` =
+> - This complements, not replaces: `PROJECT_STATE.md` = current snapshot; `DECISIONS.md` =
 >   decisions + rationale; `BRAIN.md` = the running history of how we got here.
 >
 > **Read order for an agent:** PROJECT_STATE (now) → steering/ (durable context) → BRAIN (history,
 > when deeper context is needed).
+
+---
+
+> ## Reading note added 2026-08-22
+>
+> **This is a historical log. Do not read it as a description of the project.**
+>
+> Entries before 2026-08-22 were written while the project's context was organised around coursework
+> reviews and submission deadlines, and they carry that framing: semester language, review numbering,
+> paper obligations, and scope statements that treated distribution work as deliberately out of scope.
+> They also reference files that no longer exist (`PROJECT_PLAN.md`, `steering/product.md`,
+> `steering/roadmap.md`, `steering/review-timeline.md`, `steering/git-workflow.md`) and stack facts that
+> have since changed (React Flow, Vite, a five-package layout).
+>
+> Those entries are preserved unedited because this log is append-only and because the record of what
+> was actually done is accurate. For what is currently true, read `PROJECT_STATE.md`. For what currently
+> constrains work, read `.kiro/steering/` and `DECISIONS.md`. Those win over anything below.
 
 ---
 
@@ -587,3 +604,180 @@ No code changed in this session's tail — documentation + state only. Wave B re
   - `fixtures/sample-java-project` **parse**: `a603b667abf1d7c903280a5ea661cae7087ecc90b9bafcfa9fbae25e7a6cccbc` (unchanged — no parser output-shape change in Wave D)
 - **Next:** viewer finish — wire Gap 12's real `regionId` provenance in place of the package-prefix
   heuristic, add `NOTICE`, verify the three surfaces render.
+
+---
+
+## 2026-08-22 20:55 — Public replay reached batch 69; remaining 56 commits classified and planned
+
+- **What:** carried the public-repo replay from batch 6 to batch 69 and planned the rest.
+  - **Retrofitted branch topology.** Wrote `04-retrofit-to-branches.ps1`: points a feature branch at the
+    current tip and rewinds `main` to the fork point, so commits move **byte-for-byte** — same SHAs,
+    messages and dates — rather than being recreated. One `--force-with-lease` push, the only force-push
+    in the plan. Executed; `main` rewound to the shared-contract commit and the parser work moved to
+    `feat/parser`.
+  - **Made `03-replay-batch.ps1` branch-aware** and fixed four real defects found while using it:
+    (1) a dry run created the commits locally, so re-running with `-Push` cherry-picked them a second
+    time and duplicated the batch — now detected by subject-matching and skipped; (2) merge commits were
+    stamped from an unconsumed slot index, landing *before* the tip they integrate on a `-Count 0`
+    merge-only run — now bumped to tip + 20 min; (3) the "never stamp into the future" clamp could pull
+    that merge back before the tip when the day's slots run past the wall clock — replaced with an
+    end-of-day clamp, since a same-day future time is fine for a contribution square but crossing
+    midnight is not; (4) the 8-entry slot table wrapped once days exceeded 8 commits, stamping commits
+    earlier than their predecessors — extended to 24 ascending slots with `-StartSlot` for
+    multiple-runs-per-day windows.
+  - **Public repo now at 75 commits**, in sync with origin: batches 1–69 plus the AGPL relicense, the
+    vendored viewer packages, `README` and `NOTICE`. Four dated merges landed (`merge: parser
+    implementation`, `merge: adaptive grouping engine`, and the viewer/signal-enrichment merges).
+  - **Classified the new work.** `fable-work` carries 81 commits not in archive `main`; 5 are the vendor
+    commits already public as batches 53–57. Of the 76 candidates: **56 replay, 20 drop**. Three segments
+    — `feat/parser-identity` (13), `feat/viewer` (8), `feat/engine-hardening` (35). Wrote
+    `docs/plan/replay/new-work-replay-plan.md` with every SHA, every message rewrite, the exclusion list,
+    the staging-rebuild prerequisites and a four-day timeline.
+- **Why:** the owner wanted honest branch topology rather than one flat line, and a public history with no
+  coursework references, gap numbers, wave letters or agent names.
+- **Outcome:**
+  - Found that `fable-work` is the integration branch — it contains **both** `parser-identity` and
+    `phase-3-viewer` as ancestors. Also that the vendor commits sit *after* `parser-identity` in the graph
+    despite earlier author dates, because `phase-3-viewer` was rebased onto it. Neither matters for a
+    content-based replay, but both broke the first attempt at enumerating new work by SHA range.
+  - 17 of the 20 drops self-drop: they touch only `.kiro/` or `docs/`, which the path filter strips, and
+    `filter-repo` prunes emptied commits. Three need explicit exclusion, `NOTICE` being the notable one
+    because it sits at the repo root where the filter cannot reach it.
+  - **Verification gates: none run. No code changed this turn** — the work was git plumbing, PowerShell
+    tooling and a plan document. The engine is untouched, so the recorded 354-green suite and the
+    determinism digests still stand from 2026-08-16 and were not re-measured.
+  - Measured this turn: public `main` = 75 commits, in sync with origin. `RepoHIVE-Archive` **still
+    public**, 8177 KB, via the GitHub API.
+- **Next:** owner reviews `new-work-replay-plan.md`. Then extend `scrub-messages.txt`, update the branch
+  keep/drop list and the acceptance grep, rebuild staging, append batches 70–125, and replay over four
+  days. Separately and more urgently: make `RepoHIVE-Archive` private. The uncommitted deacademization
+  work needs its own replay pass once committed.
+
+---
+
+## 2026-08-22 21:11 — Agent context repackaged; steering split from narrative; memory split into three files
+
+- **What:**
+  - Rebuilt `.kiro/steering/` as five always-on files totalling 18.8 KB: `architecture.md` (pipeline,
+    packages + dependency rules, JSON contract, viewer route handlers), `stack.md` (libraries with
+    versions, commands, what is deliberately not used), `conventions.md` (determinism, contract
+    stability, package boundaries, commits, honesty, shell), `verification.md` (the gates),
+    `memory.md` (the memory protocol).
+  - Moved all audience-facing narrative out via `git mv` to **`docs/positioning/`**: `product-vision.md`,
+    `competitive-landscape.md`, `roadmap.md`, `performance-claims.md`, plus a `README.md` do-not-load
+    banner naming what is authoritative instead.
+  - Moved coursework material to **`docs/academic/`**: `ACADEMIC_TRACK.md`, `0th`–`3rd`,
+    `review-1-kickoff.md` (was `.kiro/REVIEW1_KICKOFF.md`), `research-log.md`, `project-diary.md`, and
+    `paper/` (both journal paper drafts, figure prompts, figure8 CSVs, paper hand-off). Also with a
+    do-not-load `README.md`. `docs/reference/papers/` stayed put as shared source material.
+  - Split memory: `PROJECT_STATE.md` rewritten as a short snapshot (7.7 KB), new append-only
+    `DECISIONS.md` (20.5 KB) carrying every decision from the retired `PROJECT_PLAN.md` plus the dated log
+    that used to live inside PROJECT_STATE. `PROJECT_PLAN.md` deleted. Added a dated reading-note banner to
+    the top of this file without editing any historical entry.
+  - `commit-assist` moved from steering to `.kiro/skills/commit-assist/SKILL.md`. Rewrote the three memory
+    hooks (`sync-memory-on-stop` renamed from `sync-docs-on-stop`, `log-task-completion`,
+    `track-new-artifacts`) around the three-file protocol and **enabled** them; left
+    `load-memory-on-start` disabled since its `bm.exe` path is machine-specific. All five hook JSONs
+    validate.
+  - De-academicized and de-staled `.kiro/agents/reviewer-explainer.md` and
+    `.kiro/skills/task-researcher/SKILL.md`. Rewrote `AGENTS.md` and the README's project-context section.
+- **Why:** The always-on context was organised around positioning and submission deadlines rather than the
+  system, and it was actively suppressing work — steering told agents not to build CLI packaging, MCP, or
+  multi-language support "early", that demos should stay as `npm run` scripts, and that scale past
+  thousands of files was out of scope. Presentation-honesty rules were being read as engineering ceilings.
+  It was also factually stale: it described five packages with React Flow and Vite when the repo has eight
+  packages and a Next.js 15 / React 19 viewer with its own route handlers.
+- **Outcome:**
+  - Zero references left in the live context to `PROJECT_PLAN.md`, `review-timeline.md`,
+    `git-workflow.md`, `tech-stack.md`, `task-workflow.md`, or the coursework markers — verified by grep
+    across steering, AGENTS, README, skills and agents.
+  - Fixed a dangling reference that predates this turn: `steering/git-workflow.md` was cited by
+    `commit-assist` and `AGENTS.md` but **did not exist** (git-ignored and absent). The commit convention
+    now lives in `conventions.md`.
+  - **Verification gates run this turn.** `npm run build`: clean. Determinism: **verified**, `group` digest
+    `f30c7b3d…` identical across 3 runs (4 regions, 38 nodes, depth 4), matching the recorded value; the
+    digest did **not** move. Tests: **the recorded "354 green" claim was false and has been removed.**
+    Root `npm test` exits 1. `node --test dist/*.test.js` requires Node 21+ to expand the glob; on this
+    machine (Node v20.19.0 / npm 10.8.2) it errors `Could not find …dist\*.test.js` and runs nothing,
+    while the bare `dist/` form it replaced is vacuous on Node 21+. Measured with explicit file lists:
+    core **153/153**, parser **180/181**, `api-client` 50/50, `web` 20/20, `types` **2 suites failing**,
+    `ui` **1041/1042** with a flaky failure whose identity varies between runs.
+  - Three failures, all pre-existing and none in engine logic: `parser/source-collector.test.ts` assumes
+    POSIX filenames where `\` is legal so it fails on Windows; `types/__tests__/node-ids.test.ts` imports
+    `tests/fixtures/node_ids.json`, never vendored with the repowise packages; `ui` render-budget tests
+    are timing-sensitive. Recorded in `steering/verification.md` as a known-failure list so a genuinely new
+    failure is distinguishable.
+  - No code changed — documentation, context and hooks only.
+  - The newly enabled Stop hook fired mid-session, updated PROJECT_STATE and prepended a DECISIONS entry
+    about the replay branch topology, preserving the new structure. The self-updating loop works.
+- **Next:** commit the restructure (46 paths, documentation only) and give it a replay pass. Fix the engine
+  test runner so it is Node-version-independent — that is now the top verification blocker. Still open and
+  more urgent than either: make `RepoHIVE-Archive` private.
+
+---
+
+## 2026-08-22 22:07 — Hooks consolidated to one; procedure moved into steering and skills
+
+- **What:**
+  - Deleted four hooks: `log-task-completion.json`, `track-new-artifacts.json`,
+    `load-memory-on-start.json`, `commit-assist.kiro.hook`. `.kiro/hooks/` now contains only
+    `sync-memory-on-stop.json`.
+  - Rewrote that hook as a thin trigger — 4 KB to 0.8 KB. It judges whether meaningful work occurred and
+    delegates to `steering/memory.md`; it no longer carries the procedure.
+  - Moved the detail out of the hook into `steering/memory.md` 'How to update', strengthening it in the
+    process: names the exact PROJECT_STATE sections to revise, states that a DECISIONS entry is only for a
+    genuine new decision rather than for executing an existing one, and carries the digest rule (identify
+    what changed, record it, never silently recapture). Replaced the 'Self-maintenance' section with
+    'Two ways this runs' — the hook automatically, the `memory-sync` skill deliberately.
+  - Created `.kiro/skills/memory-sync/SKILL.md`. It deliberately does not restate the protocol; it covers
+    how a requested sync differs from an automatic one (widen the window past one turn, audit rather than
+    append, re-verify a gate rather than copy its old result), plus trigger-phrase scoping and boundaries.
+  - Fixed `commit-assist` SKILL.md step 6, which pointed at the now-deleted logging hook, and updated the
+    `AGENTS.md` helpers table to four skills and one hook.
+- **Why:** Owner called the hooks amateur and asked to keep only the Stop hook, expressing the rest as
+  skills. Two of the deleted hooks did subsets of what the Stop hook already did, one hardcoded a
+  machine-specific `bm.exe` path, and one duplicated the `commit-assist` skill verbatim. The deeper problem
+  was the Stop hook's ~2,000-character prompt restating rules that already live in always-on steering —
+  two copies of one protocol, the JSON copy being the one nobody reviews. Duplicated instructions drift,
+  and the copy that drifts unseen is the one that executes.
+- **Outcome:**
+  - Dividing line now recorded as a decision: anything invocable is a skill; a hook exists only for what
+    must fire unasked, and may not contain a procedure.
+  - `.kiro/skills/`: `commit-assist`, `memory-sync`, `task-researcher`, `handoff-generator`.
+  - Verified: the remaining hook's JSON parses; grep across steering, AGENTS, skills and agents returns no
+    references to any deleted hook.
+  - **Verification gates: none run. No code changed this turn** — the work was agent configuration and
+    documentation. The engine is untouched, so the build/determinism results measured earlier today
+    (2026-08-22, digest `f30c7b3d…` confirmed across 3 runs) and the known-failure list in
+    `verification.md` both still stand and were not re-measured.
+  - No README added for `.kiro/skills/memory-sync/`: skill folders are self-describing via `SKILL.md` and
+    none of the three existing ones carry a README. Noted in PROJECT_STATE instead of adding a redundant
+    file.
+- **Next:** commit the restructure — now 47 changed paths, documentation and agent config only — then give
+  it a replay pass. Engine test runner still needs to be made Node-version-independent. Still open and more
+  urgent than either: make `RepoHIVE-Archive` private.
+
+---
+
+## 2026-08-22 22:11 — Spent replay artifacts deleted
+
+- **What:** removed five files from `docs/plan/replay/` whose purpose is complete:
+  `04-retrofit-to-branches.ps1` (one-time topology retrofit, executed), `public-README-initial.md`,
+  `public-README-agpl.md`, `public-NOTICE` (all three committed into the public repo), and
+  `branch-schedule.md` (batches 1–69, fully executed). Updated the header of
+  `new-work-replay-plan.md` and the reference-register row in `PROJECT_STATE.md` so neither points at a
+  deleted file.
+- **Why:** owner asked for cleanup of the previous replay's artifacts. These files are untracked and
+  git-ignored, so deletion is unrecoverable — checked that `README.md`, `NOTICE` and `LICENSE` are
+  actually present on public `main` before removing their source templates.
+- **Outcome:** the remaining kit is exactly what the next replay needs — `01-setup-staging.ps1`,
+  `02-show-batches.ps1`, `03-replay-batch.ps1`, `AGENT-INSTRUCTIONS.md`, `batches.txt`,
+  `scrub-blobs.txt`, `scrub-messages.txt`, `new-work-replay-plan.md`.
+  **Kept `02-show-batches.ps1` deliberately** against the plan's description of it as a mere reporting
+  aid: it encodes the segment-ordering logic that produced `batches.txt` entries 1–69, which is recorded
+  nowhere else and would be the only way to regenerate that list if a staging rebuild ever changed those
+  SHAs.
+  No code changed, so no verification gates apply.
+- **Next:** owner decision on four adjacent untracked candidates, all describing completed work:
+  `.kiro/GIT_PLAN.md`, `.kiro/GIT_REDATE_PLAN.md`, `docs/phase-1.5/`, and
+  `docs/plan/{agent-fix-protocol,viewer-agent-protocol}.md`.

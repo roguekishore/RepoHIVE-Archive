@@ -1,0 +1,15 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Sync Memory on Agent Stop",
+      "description": "At the end of a turn, judge whether meaningful work occurred and update project memory if so. The procedure lives in .kiro/steering/memory.md; this hook only triggers it.",
+      "trigger": "Stop",
+      "action": {
+        "type": "agent",
+        "prompt": "Apply the memory protocol in `.kiro/steering/memory.md` to the turn that just ended.\n\nJudge first, using that file's 'When to update' rule. If no meaningful work occurred, do nothing and say so in one line — an empty update is correct.\n\nIf meaningful work did occur, follow 'How to update' and 'What goes where' exactly. Do not restate the protocol back; just execute it."
+      },
+      "enabled": true
+    }
+  ]
+}

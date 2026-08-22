@@ -27,10 +27,17 @@ packages/
   web/      React + React Flow viewer
 ```
 
-## Project context
+## Status
 
-Final-year project (23CS701 – Project-I), built spec-driven with Kiro. See `.kiro/PROJECT_PLAN.md` for
-the full plan and `.kiro/steering/` for durable context. Commands `parse`/`group`/`view` are placeholders.
+The engine is built and audited: Tree-Sitter Java parsing, adaptive grouping, and blast radius, verified
+deterministic (byte-identical output across repeated and shuffled-input runs). The viewer renders
+semantic-zoom navigation, a flat baseline for comparison, and an audit of every preserve-vs-reconstruct
+decision.
+
+Validated on real multi-module Java up to ~29k nodes / ~14k edges. Not yet packaged as a standalone CLI —
+the pipeline currently runs through the repo's npm scripts.
+
+Command names `parse` / `group` / `view` are placeholders.
 
 ## License
 

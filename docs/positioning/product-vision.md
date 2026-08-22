@@ -19,7 +19,7 @@ an AI agent's context, slow to search. Directory trees don't help: folders show 
 *saved*, not how code actually *depends* on itself. There is no easy, automatic way to turn the messy
 flat map into a clean, layered one that stays simple to explore while preserving every real connection.
 
-## The core research contribution
+## The core contribution
 
 **Adaptive, per-region hierarchy construction driven by structural quality.** Instead of imposing one
 global grouping method, the system measures each region's structural quality (cohesion + coupling) and
@@ -39,7 +39,7 @@ score, and parameter is recorded so the result is deterministic, reproducible, a
 Multi-level **adaptive** hierarchy + **determinism**. This is one genuine idea, well executed — not a
 broad "better than everyone" claim.
 
-## The two defense claims (keep them SEPARATE)
+## The two claims (keep them SEPARATE)
 
 - **Claim A — Hierarchy beats flat (for navigation/retrieval).** Why: bounded cognition; a flat pile
   of 40 clusters still overwhelms, a tree shows ~5–7 things per level. Caveat: better for
@@ -57,8 +57,13 @@ broad "better than everyone" claim.
   *incremental* hierarchy-over-flat-graph saving is real but smaller — measure it, don't claim "71x".
 - We will NOT be "better than Sourcegraph/Graphify overall" — only better in our one narrow slice.
 
-## What is explicitly OUT of core scope
+## Out of scope for GROUPING (an engineering boundary, not a permanent product boundary)
 
-Intent detection, automatic flow naming, repository semantic understanding, LLM-generated architecture
-decisions, and **embedding-based grouping**. (Embeddings may be added later as a semantic layer for
-search/naming — never for grouping.)
+Grouping decisions are made from **structure only**. Intent detection, automatic flow naming,
+repository semantic understanding, LLM-generated architecture decisions, and **embedding-based
+grouping** never influence how nodes are grouped — that is what keeps the output deterministic and
+auditable.
+
+Semantic capability may still be added *around* grouping — search, cluster naming, summaries — as a
+layer that reads the hierarchy without changing it. See `roadmap.md` for those seams. The rule is
+narrow and permanent: **nothing non-deterministic decides group membership.**
