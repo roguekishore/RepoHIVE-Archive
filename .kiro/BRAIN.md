@@ -781,3 +781,588 @@ No code changed in this session's tail — documentation + state only. Wave B re
 - **Next:** owner decision on four adjacent untracked candidates, all describing completed work:
   `.kiro/GIT_PLAN.md`, `.kiro/GIT_REDATE_PLAN.md`, `docs/phase-1.5/`, and
   `docs/plan/{agent-fix-protocol,viewer-agent-protocol}.md`.
+
+---
+
+## 2026-08-22 22:24 — Replay plan: dates parameterised, acceptance criteria corrected
+
+- **What:** three edits to `docs/plan/replay/new-work-replay-plan.md`. Replaced the four hardcoded
+  calendar dates in the timeline with a `-Date <DATE>` placeholder (owner wants to start on the 21st), and
+  added the three ordering rules the chosen dates must satisfy — one date per segment day, days 3 and 4
+  non-decreasing because they share a branch, gaps irrelevant. Then corrected acceptance check 3 and the
+  matching risk entry.
+- **Why:** the plan told the verifier to expect a **354-green** suite. That figure was superseded earlier
+  the same evening: it counted three of six test workspaces and was captured on Node 21+. Leaving it would
+  have had the acceptance check fail for reasons unrelated to the replay.
+- **Outcome:** check 3 now names per-workspace figures (core 153/153, parser 180/181, web 20/20,
+  api-client 50/50), enumerates the four known non-passes as pre-existing rather than replay-caused
+  (Windows `source-collector` assumption, two vendored `types` suites, flaky `ui` render-budget tests, root
+  `npm test` exiting 1), and directs the verifier to the explicit test-file list instead of
+  `node --test dist/*.test.js`, which needs Node 21+ and errors out on Node 20. The risk entry no longer
+  implies a single green-suite number exists. Verified by grep: 4 `-Date <DATE>` placeholders present, zero
+  references to 354, zero hardcoded dates left in the timeline table. No code changed, so no gates apply.
+- **Next:** unchanged — owner reviews the plan, then the staging rebuild and the four replay days.
+
+---
+
+## 2026-08-22 22:33 — Replay prerequisites built; found the acceptance test never read commit messages
+
+- **What:** owner tried to run replay day 1 and hit a parameter error — a `Day 1` label copied out of my
+  plan's table bound to `-StartSlot`. Behind that were two real blockers: `batches.txt` holds only 69
+  entries so `-From 70` is out of range, and the staging mirror has no `fable-work`, so none of the 56
+  commits exist there to cherry-pick. Built the prerequisites.
+  - **`scrub-messages.txt` 2 → 38 rules.** All 36 message rewrites from the plan, as full-subject literal
+    `old==>new` pairs. Validated: none malformed, none non-ASCII (those fail *silently* in `filter-repo`),
+    no duplicate search terms. One addition beyond the plan's 35: `chore(build): make npm test discover
+    compiled test files on node 21+` loses the `on node 21+` claim, which is now known to be misleading.
+  - **`01-setup-staging.ps1`** — `parser-identity` and `staging` added to the drop list (the first is fully
+    contained in `fable-work`, the second duplicates `main`); `fable-work` survives by not being listed.
+  - **`05-append-new-batches.ps1`** — new. Appends entries 70+ to `batches.txt`, dry-run by default,
+    backs up before writing, and asserts 5 vendor skips / 3 exclusion skips / 56 kept.
+- **The defect worth remembering:** the existing acceptance test uses `git grep`, which searches file
+  **content** at each revision and **never reads commit messages**. Every message-only leak passed it
+  silently — so the entire point of this pass, stripping `gap N` / `Wave A-E` / `Phase D-E` from subjects,
+  had no verification at all. Added **step 6b**, which greps `git log --all` for that vocabulary plus
+  `fable`, `repowise-dev`, a leading `kiro(`, and spec-clause ids like `R3.7`, and fails the build on any
+  hit.
+- **Two traps recorded in the script's own header, because they are easy to reintroduce:**
+  1. Exclusions must match on **subject, not SHA** — staging is a filtered copy, so its hashes differ from
+     the archive's and every SHA in the plan is unmatchable there.
+  2. `--not main <batch-57>` looks like the natural range and is wrong: `phase-3-viewer` was rebased onto
+     `parser-identity`, so the five vendor commits sit *after* the 16 parser-identity commits in the graph,
+     and excluding batch 57's ancestors silently swallows all of parser-identity. This is the bug that
+     broke my first attempt at enumerating this work.
+- **Outcome:** all three scripts parse clean under the PowerShell AST parser. Nothing executed — staging
+  is still stale and `batches.txt` still holds 69 entries. No code changed, so no engine gates apply.
+  Also corrected the plan's `fa0edce` row and its batch-list section to match the tooling.
+- **Next:** owner runs `01-setup-staging.ps1` (answer `y` to the dirty-source warning; the uncommitted
+  deacademization work is deliberately out of scope), then `05-append-new-batches.ps1` dry-run and
+  `-Apply`, then replay day 1.
+
+---
+
+## 2026-08-22 22:40 — Batch-list dry run caught three commits that would have leaked internal content
+
+- **What:** owner ran `05-append-new-batches.ps1` dry, then `-Apply`. It appended **59** entries instead of
+  the planned 56 and warned about both the count and the exclusion tally. Three of the 59 must not ship.
+  Restored `batches.txt` from the automatic `.bak` (back to 69 entries), diagnosed each, and fixed the
+  tooling.
+  - `docs: add Fable handoff brief` writes **`FABLE_HANDOFF.md` at the repo root**, not under `docs/`, so
+    the path filter never touched it — 360 lines of internal agent brief survived. Added to
+    `--invert-paths`, which empties the commit.
+  - `docs: add generation prompts for all eight paper figures` turned out **not to be a pure docs commit**:
+    with `docs/` stripped it still removes a bogus self-referential `"repohive": "file:"` entry from
+    `package-lock.json` plus three mode-only changes under `packages/ui/scripts/`. Kept and retitled
+    `chore: drop the self-referential repohive entry from package-lock`. **This is why the count is 57, not
+    56** — my original classification wrongly assumed it would self-empty.
+  - `chore: remove academic reference` is **new**, committed to the archive at 22:13 by the deacademization
+    pass, twenty minutes before the run. It edits the *archive* `README.md`, a different document from the
+    public repo's injected README, so replaying it would conflict or drag archive prose across. Excluded.
+- **The miss worth remembering:** a commit literally titled `chore: remove academic reference` passed both
+  acceptance tests. `academic` was in step 6's *content* pattern but never in 6b's *message* pattern.
+  Added, along with `FABLE_HANDOFF`, `paper figure`, `figure prompt`, `journal paper`, `handoff brief` —
+  as phrases rather than bare words, because the vendored UI calls a surface a "paper wash" and
+  `\bpaper\b` would fail the build on real code. Tested both directions: five good subjects stay clean,
+  five leaked subjects all get caught.
+- **Also corrected:** the `skipped, excluded: 1` warning was a false alarm — two of those three subjects
+  self-empty under the path filter and are pruned before the script sees them. Replaced that fixed-count
+  assertion with a "at least one matched" check, since the total is the real gate.
+- **Outcome:** counts revised to **57 replay / 20 drop**, segment 3 to 36 commits, day 4 to `-Count 18`,
+  final public `main` to 135. `scrub-messages.txt` at 39 rules, none malformed, non-ASCII, or duplicated.
+  Both scripts parse clean. Nothing replayed; `batches.txt` back to 69 entries. No code changed, so no
+  engine gates apply.
+- **Next:** re-run `01-setup-staging.ps1` — mandatory, the path filter changed — then
+  `05-append-new-batches.ps1` expecting exactly 57, then replay day 1. If the count is not 57, do not
+  apply.
+---
+## 2026-08-22 22:47 — Repo analysis re-ran the gates and found three stale records
+
+- **What:** owner asked for an analysis of the project from the repo itself. Read `PROJECT_STATE`,
+  `DECISIONS`, the grouping spec's requirements, `assessor.ts` / `regions.ts` / `constructor.ts` /
+  `weights.ts`, `web/src/middleware.ts`, and the package manifests. Then re-ran the gates rather than
+  quoting the recorded numbers.
+- **Why:** the recorded state is only worth trusting if it reproduces, and an analysis built on unverified
+  memory would inherit whatever had drifted.
+- **Gates run (this turn, Node v20.19.0 / npm 10.8.2):** `npm run build` clean; determinism
+  `f30c7b3dfe38c476ada89a1175036cd36e1e623a08efc79345fd79beb3b4b5b3` identical across 3 runs and an exact
+  match to the recorded digest; `core` **153/153**; `parser` **180/181** with the single failure being
+  `source-collector` test 124, the known Windows filename assertion. No new failures, nothing added to the
+  known-failure list. Gates 4 and 5 not run — no code changed, so neither applies.
+- **Three record defects found:**
+  1. `PROJECT_STATE` claimed the context restructure was uncommitted across 47 paths. It is committed —
+     steering, skills and `docs/positioning/` are all tracked, landed by `17ea705`, whose subject
+     `chore: remove academic reference` describes almost none of what it contains. The same misleading
+     subject caused a wrong replay classification twenty minutes earlier, so it has now cost two mistakes.
+  2. `steering/stack.md` lists the parser's Tree-Sitter deps as `tree-sitter` + `tree-sitter-java`. Actual:
+     `tree-sitter-java` 0.23.5 + `web-tree-sitter` 0.26.10 — WASM, not the native binding.
+  3. `steering/architecture.md` presents `packages/cli` as "wires the pipeline". It holds one `.gitkeep`,
+     which is consistent with the packaged CLI being listed as the blocker but not with that description.
+- **The substantive inference:** the preserve-vs-reconstruct split is partly a function of parser signal
+  volume, not only repository quality. `decideAction` is a bare `score >= boundary`; the weight is all in
+  the assessor, where cohesion is raw strength-per-node, squash `k` is 1.0, coefficients are all 1 and the
+  boundary is 0.5. So the active comparison reduces to roughly `cohesion/(cohesion+1) >= coupling`, and
+  enriching the parser shifts it. Wave A is the evidence already on record: `vantage` 0/20 → 10/10 preserve
+  as edges went 128 → 341. With two real fixtures, this ranks more real-repo validation above group naming.
+  Recorded as a risk in `PROJECT_STATE`, not as a defect — the spec already calls the boundary an
+  empirically calibrated, sensitivity-analysis target, and the assessor's refusal to let modularity be the
+  primary discriminator (it is what Louvain optimizes, so it would beg the question) is the strongest
+  reasoning in the engine.
+- **Outcome:** no code touched. `PROJECT_STATE` corrected — the false uncommitted-restructure bullet
+  replaced, the gate table stamped with the 22:47 re-run and the exact digest, the steering drift and the
+  calibration risk added to open questions, and the footer's stale "56 commits" moved to 57. No
+  `DECISIONS` entry: nothing was decided, and the two steering fixes were offered to the owner rather than
+  applied unprompted.
+- **Next:** owner decides whether to apply the two steering corrections. `stack.md`'s is the one that
+  matters — it can send an agent to install the wrong Tree-Sitter binding.
+---
+## 2026-08-22 23:13 — Next-step brainstorm: the viewer is 3 real pages of 51, and two roadmap items are already half-built
+
+- **What:** owner asked which of MCP / CLI / "a proper web app" to build next, with a gap analysis and a
+  per-stage plan. Read `core/src/index.ts`, `blast-radius.ts`, `group-cli.ts`, `api-client/src/client.ts`
+  and `mcp-tools.ts`, `web/src/lib/api/client.ts`, `nav-items.ts`, `stub-responses.ts`,
+  `zoom-map-adapter.ts`, `web/src/app/page.tsx`, `docs/group-naming.md`, and `docs/positioning/roadmap.md`
+  (read deliberately — the owner was asking about direction; treated as intent, not spec). Delegated the
+  51-page viewer inventory to a subagent. Ran two web searches on prior art.
+- **Why:** a recommendation built on the memory files alone would have inherited their drift, and last
+  turn already proved the records drift. Two of the three things the owner named turned out to be in a
+  different state than any document said.
+- **Measured this turn:**
+  - Re-ran `group` on `sample-java-project` into `.tmp-probe/` (deleted afterwards): **all 8 group nodes
+    carry `regionId` + `ordinal`**, and `regionDecisions` carry `groupIds`. So Gap 12 provenance is live
+    and the engine half of group naming is **done** — `docs/group-naming.md` still says "Nothing here is
+    implemented yet", which is wrong.
+  - Fixture index freshness: `vantage` 55/55 groups with `regionId`, `broadleaf` 1670/1698 (28 are
+    repository-wrapping levels, correct by design), **`sample-java-project` 0/8 — stale.**
+  - Viewer inventory: **3 real / 22 redirect / 26 dead** across 51 pages. `lib/api/client.ts` aims every
+    vendored fetch at the app itself, where only 7 handlers exist. No fabricated or fixture data reaches
+    the running app; `hosted.ts` and `__fixtures__/hosted/*.json` are test-only and not re-exported.
+- **The three findings that changed the recommendation:**
+  1. **The vendored IA is a liability, not a backlog.** Filling those 26 pages needs a git-history
+     analyzer, a coverage reader and a security scanner. Building toward it spends time on someone else's
+     product. The right move for the viewer is subtractive.
+  2. **The roadmap's "the CLI is the keystone every other surface wraps" is wrong for MCP.** An MCP server
+     is an ecosystem package and may import `core` directly; `parseIndex` and `analyzeBlastRadius` are
+     already exported. Nothing in the candidate list blocks anything else, so sequencing is purely
+     value-versus-deadline.
+  3. **The code-graph-MCP space is crowded** — Ctxo, code-impact-mcp, Recon, agentic-codebase,
+     code-review-graph, Sverklo, codebase-memory-mcp, several Tree-Sitter based and several shipping blast
+     radius by name. MCP is distribution, not differentiation. The recorded deterministic per-region
+     decision remains the only thing none of them appear to have.
+- **On the owner's knowledge-persistence idea** (explicitly deferred, so analysed only as far as the code
+  supports): the mechanism already exists as a side effect of content-addressing. `g_<sha1>` hashes
+  canonical membership, so knowledge keyed to a group id survives edits that do not restructure and
+  self-invalidates when membership changes — which is the hard part. `regionId`/`ordinal`, blast radius,
+  and determinism (two agents on one commit derive identical ids) complete the set, and the hash-keyed
+  `labels.json` sidecar in `group-naming.md` is already the designed boundary for non-deterministic
+  content. Pushed back on the "unsolved territory" framing: agent memory was heavily productized through
+  2026 (Anthropic managed-agent persistent memory in April, AWS Bedrock AgentCore Memory, Microsoft
+  Foundry, mem0/Letta/Zep). The *sub-problem* is genuinely open though, and named by that market —
+  Supermemory's large-repo post describes agents retrieving code that has not existed since the last
+  deploy, which is exactly the invalidation failure structural binding answers.
+- **Outcome:** no code, no specs, nothing implemented — the owner has not chosen a direction. Recommended
+  order: a ~1 day credibility pass (re-index the small fixture, Tier-1 labels, fix the landing page's
+  zeros, drop two dead controls, fix the Node 20/21 test script), then real-repo validation in parallel
+  with either MCP or the CLI. `PROJECT_STATE` gained a "Viewer surface reality" section, the measured
+  provenance facts, a sized and corrected Next-up list, and three new risks (landing-page zeros, the
+  stale `group-naming.md` header, the crowded MCP space). No `DECISIONS` entry: options were laid out,
+  nothing was chosen.
+- **Next:** owner answers the two open questions — academic deadline, and MCP before or after the CLI.
+  Then write a spec for whichever stage wins, rather than starting to code.
+---
+## 2026-08-22 23:28 — CLI chosen; and a correction: group naming was never outstanding
+
+- **What:** owner chose the packaged CLI as the next workstream, asked what the `g_<hash>` point was, and
+  pushed back that the frontend already shows names. Checked the pushback before answering.
+- **Correction to my 23:13 entry, which was wrong.** That entry said the engine half of group naming was
+  done and "only viewer-side composition remains". **Tier 1 was already complete, both halves.**
+  `web/src/lib/repohive/zoom-labels.ts` implements it per spec R6 in exactly one module: it reads the
+  engine's `regionId`/`ordinal`, strips the `pkg:` scheme, shows the last segment (`friend`, not
+  `com.backend.springapp.friend`), and appends `(2 of 3)` only when a region actually split into several
+  groups, falling back to the longest common package prefix and then to a positional label. The full
+  dotted path goes on the node's `path` as the hover subtitle.
+- **Why I got it wrong, worth not repeating:** `docs/group-naming.md` says "Nothing here is implemented
+  yet" and `positioning/roadmap.md` lists group naming under "Now". I verified the *engine* half was live,
+  then **inferred** the viewer half was not, without looking for it. Verifying one half of a claim and
+  assuming the other is exactly the failure the verification rule exists to prevent. Two stale documents
+  agreeing with each other is not evidence. The owner caught it, not me.
+- **On `g_<hash>`, for the record:** `core/src/group-id.ts` is `"g_" + sha1(JSON.stringify(sortIds(childIds)))`
+  — nothing but sorted membership feeds it. Built for determinism, but the side effect is that the id is a
+  *fingerprint of membership*: stable across edits that do not restructure, and it ceases to exist when
+  membership changes. That is why it is the right key for the owner's knowledge-persistence idea —
+  invalidation becomes a property of the key rather than something to maintain. Its limit, stated to the
+  owner: it tells you the ground moved, not whether the note is still true.
+- **Parallelism assessed by file overlap:** CLI, MCP, the viewer passes and real-repo validation have no
+  code overlap and can run concurrently. Three caveats recorded in `PROJECT_STATE`: CLI and MCP both edit
+  `architecture.md` and root config; the Node test-script fix disturbs the same `package.json` files the
+  CLI extraction moves, so it goes first; and the memory files serialize everything, `DECISIONS.md`
+  especially, being append-only newest-first.
+- **The blocker I flagged:** the replay asserts exactly 57 commits on `fable-work`. Starting CLI work there
+  moves the count and trips the assertion — the same failure that cost the 22:40 session. Offered two ways
+  out (drain the replay first, or branch and freeze `fable-work`); recommended the second. **Owner has not
+  chosen**, so nothing should be committed to `fable-work` yet.
+- **Outcome:** `PROJECT_STATE` corrected — group labels struck from Next up, the risk entry now records
+  Tier 1 as shipped with only Tier 2 outstanding, the CLI marked as chosen, a parallelism map added, and
+  the replay conflict recorded against the replay bullet. `DECISIONS` gained one entry fixing CLI-before-MCP
+  so the comparison is not re-argued. No code written; no gates apply.
+- **Next:** write the CLI **requirements** spec for owner review before any design or code. Two answers
+  still owed: academic deadline, and how to resolve the replay conflict.
+---
+## 2026-08-22 23:38 — Planned for parallelism and future-proofing; found the missing pipeline layer
+
+- **What:** owner asked for a realistic next plan, maximally parallel and future-proof, and told me not to
+  worry about the parallelism logistics (their side). Read `parser/src/index.ts`, the parser's
+  `package.json`, `core/src/index-serializer.ts`'s deps interface, and grepped every `node:fs` call in the
+  core index I/O path. Produced a plan; wrote no code and no spec.
+- **Why:** "future-proof" only means something concrete here if it is checked against the actual seams, and
+  the last two turns both showed that documents describing this repo drift from it.
+- **Two findings, both bearing directly on the CLI work the owner just chose:**
+  1. **There is no pipeline-orchestration layer.** `parseProject` is in `parser`, `groupGraphToIndex` is in
+     `core`, and both depend only on `shared`, so neither can import the other. parse→group exists *only*
+     as two separate root npm scripts. A one-shot `index <dir>` command therefore has nowhere to live, and
+     whichever surface is built first will absorb that logic. If it lands in `packages/cli`, MCP ends up
+     depending on a package called "cli" — the roadmap's mistaken "CLI is the keystone" claim becoming true
+     by accident rather than by design.
+  2. **The storage-seam risk recorded in PROJECT_STATE was imprecise, and I sharpened it.** It said "no such
+     interface exists". In fact the *write* path has one — `IndexSerializerDeps` at
+     `index-serializer.ts:108` injects the fs calls with a default, added so write failures were testable.
+     Only the *read* path lacks it (`index-parser.ts:54`, `orchestrator.ts:324`). So the seam is asymmetric,
+     not absent, and completing it is mirroring an existing in-repo pattern rather than introducing an
+     abstraction. That reframes it from a design question to a small symmetry fix — and four deferred
+     roadmap items (MCP caching, incremental/watch, drift detection, hosted storage) all route through it,
+     which is what makes it the highest-value item on the list.
+- **Plan proposed (not decided):** a ~2–3 day serial "Stage 0" of seam work — Node test-script fix, read-path
+  injection, the orchestration package, and a documented sidecar convention — after which five streams run
+  wide with distinct file ownership: CLI, MCP, viewer, evidence/validation, Tier-2 naming. Plus four contract
+  decisions worth making while nothing depends on them: machine-readable output as the primary interface with
+  prose as a rendering, exit codes as contract, a `describe` command, and a version field in `metadata.json`.
+  The sidecar convention generalizes `group-naming.md`'s hash-keyed `labels.json` so Tier-2 names and any
+  future knowledge-persistence store obey one rule instead of three ad-hoc ones.
+- **Told the owner the cost plainly:** Stage 0 ships no visible feature and inverts the CLI-first choice they
+  made an hour earlier. If a demo or review lands inside a week it is the wrong trade and the CLI should be
+  built directly, with the orchestration exported as a library from `cli` so MCP need not depend on the
+  command layer.
+- **Outcome:** `PROJECT_STATE` updated — storage-seam risk sharpened from "absent" to "asymmetric" with line
+  references, the missing orchestration layer recorded against the CLI item, and Stage 0 recorded as proposed
+  and undecided with its cost. No `DECISIONS` entry: nothing was decided, and this proposal partly reverses a
+  recorded decision, so it must not be logged as though the owner had accepted it. No code changed, so no
+  gates apply.
+- **Next:** owner picks Stage 0 first or the CLI directly, then I write that requirements spec. Still owed:
+  the academic deadline, and the replay-conflict resolution.
+
+## 2026-08-23 17:49 — Forward-path register written; four stale doc claims corrected
+
+- **What:** Analysed the owner's four forward paths (reuse of vendored repowise components, packaged CLI,
+  MCP server, hosted deployment with auth), explained them twice — once technically, once in plain language
+  at the owner's request — then, on the owner's instruction, made the analysis durable and repaired the
+  stale documentation it had surfaced. Created `.kiro/workstreams.md`. Corrected
+  `steering/stack.md`, `steering/architecture.md` and `docs/group-naming.md`. Rewrote
+  `PROJECT_STATE.md` (263 → ~150 lines). Prepended one `DECISIONS.md` entry.
+- **Why:** The same four-path analysis had been produced on 2026-08-22 and again today, both times in chat
+  only, and lost at session end each time. The owner asked for it documented, for decisions to be recorded
+  as they arrive, and for the stale memory files to be fixed before brainstorming continues.
+- **Outcome:**
+  1. **`.kiro/workstreams.md`** — per-path scope, blockers, plans, a dependency/parallelism map, open owner
+     decisions, and an explicit evidence-and-confidence section separating what was read in the code from
+     what is cited from AWS docs from what was not verified at all. Marked "register only, nothing chosen".
+  2. **First placed it in `docs/plan/`, which turned out to be git-ignored** via `.git/info/exclude:31`, so
+     it would never have been tracked. Moved to `.kiro/`, matching where the other tracked registers live.
+     Recorded the trap in the decision entry.
+  3. **Sharpened the source-provider seam finding.** `DECISIONS.md` says `ParseDeps.collector` is the
+     injection point; reading the code shows three injectable-but-unwired fs touchpoints (validator,
+     collector, `ast-extractor`'s `readFile`) plus a required `projectDirectory: string`. Recorded as a
+     correction to that entry's premise, explicitly *not* a supersession — the decision stands, only its
+     cost moves.
+  4. **New finding: WASM resolution constrains bundled deployment.** `resolveGrammarPaths` resolves two
+     `.wasm` files from `node_modules` via `createRequire`, which breaks under any bundler. `GrammarOptions`
+     exists to override it and its docstring names bundled deployments, so it is anticipated — but it is a
+     real Lambda/container prerequisite and was not written down anywhere. Now in `stack.md` and the register.
+  5. **Reframed Path 1 usefully:** reuse the *components*, not the *pages*. The DSM — the best structural
+     visual in the vendored set — sits on `/workspace/conformance`, hidden because `workspaceStub()` returns
+     `is_workspace: false`, and reviving that page would require a `SystemGraph` the engine cannot produce.
+     Importing `DsmMatrixView` into a new repo-scoped page needs no engine change at all. Also flagged the
+     `decisions` name collision: theirs are mined ADRs with authors and prose, not our region decisions, so
+     driving those pages would mean fabricating exactly what the adapter convention forbids.
+  6. **Argued against Lambda-first for hosting,** but corrected my own initial reasoning: SSE from Lambda
+     *is* possible (response streaming via Function URLs, and API Gateway `STREAM` transfer mode), so
+     streaming is not the obstacle. The real case is that the recorded design already puts the pipeline in
+     `worker_threads` and anticipates lifting it later, the owner already runs an EC2 box, and WASM
+     packaging bites hardest in a bundled cold-start environment.
+  7. **Four doc corrections**, all "the code wins": dependency table now names `web-tree-sitter` 0.26.10
+     WASM and warns against installing native `tree-sitter`; `packages/cli` described as empty rather than
+     as wiring the pipeline, with a note that no orchestration layer exists; the storage seam described as
+     asymmetric with line references rather than complete; `group-naming.md`'s status header replaced —
+     Tier 1 shipped, only Tier 2 remains. `stack.md`'s test-command claim reconciled with
+     `verification.md`: neither `dist/*.test.js` nor `dist/` works on both Node 20 and 21+.
+  8. **Incidental discovery:** `gaps.md`, `fixes.md` and `edge-case-audit.md` exist in **both** `.kiro/`
+     (tracked) and `docs/` (untracked). Recorded as a risk in `PROJECT_STATE`; nothing deleted, since
+     removing files is destructive and needs the owner's say-so.
+  9. **`.tmp-timing/` is gone** — the untracked artifact flagged on 2026-08-22 no longer exists.
+- **Honesty notes:** No product or sequencing decision was made this session. The CLI-first decision from
+  2026-08-22 still stands; my Path-1-first recommendation was put to the owner and is unaccepted, and the
+  `DECISIONS` entry says so explicitly so a later reader cannot mistake it for adopted. No verification
+  gates were run because no code changed — only markdown. All effort figures in the register are labelled
+  estimates. Not verified: npm availability of any package name, on-disk size of `broadleaf/index/`, and
+  whether `route-links.test.ts` asserts redirect targets.
+- **Not committed.** The working tree now carries six modified markdown files plus untracked
+  `.kiro/workstreams.md`, all memory or docs. Per `conventions.md` these belong on `main`, and committing
+  them to `fable-work` would move the replay count off the asserted 57 and trip
+  `05-append-new-batches.ps1`. Left staged-nothing for the owner to place.
+- **Next:** brainstorming continues. The decisions that come out of it get prepended to `DECISIONS.md` and
+  reflected in `.kiro/workstreams.md`. Still owed by the owner: the academic deadline, the replay-conflict
+  resolution, foundation-seams-first vs. build-the-surface-directly, and the published package/command names.
+
+## 2026-08-23 18:02 — Correction to the 17:49 entry: PROJECT_STATE length
+
+> **Stamp corrected in place.** This heading was first written as `18:05`, a time I estimated instead of
+> measuring. `Get-Date` returned **18:02**. Edited rather than appended because the append-only rule exists
+> to stop the record being quietly rewritten, and leaving an invented future timestamp in a file whose
+> whole value is trustworthy stamps defeats the same purpose. Disclosed here rather than done silently.
+> The 17:49 stamp on the preceding entry was measured and is unchanged.
+
+- **What:** The 17:49 entry states `PROJECT_STATE.md` went "263 → ~150 lines". The measured figure after
+  trimming is **177 lines**. Correcting it here rather than editing that entry, per the append-only rule.
+- **Why it stopped at 177:** three passes of trimming removed the parts genuinely duplicated by
+  `.kiro/workstreams.md` — the viewer-surface detail, the wall-clock consequences, and the per-path
+  estimates in *Next up*, which are now titles only so the two files cannot drift. What remains is current,
+  non-duplicated truth: nine sections, thirteen live risks. Cutting further would have deleted real
+  information to satisfy a soft guideline, which is the worse trade.
+- **Consequence:** `memory.md`'s "under roughly 150 lines" is exceeded by ~18%. Flagging rather than
+  hiding it. If it needs to come down further, the candidates are the risk list (some entries have outlived
+  their usefulness and could be retired wholesale) or moving *Measured fixture results* into a register —
+  but both are judgement calls for the owner, not silent trims.
+
+## 2026-08-23 18:25 — Two blockers dissolved; CLI distribution measured and proposed
+
+- **What:** Owner ruled on two open questions and asked for a CLI distribution strategy. Measured the actual
+  package weights rather than reasoning about them, checked the npm name, traced whether the viewer can
+  become a static artifact, then proposed a command surface and packaging plan. Prepended two `DECISIONS`
+  entries, updated `PROJECT_STATE`, and substantially extended `.kiro/workstreams.md` Paths 1, 2 and 4.
+- **Why:** The owner's premise was that a ~2 GB `node_modules` made a lightweight CLI hard. That deserved
+  measurement before design, because if the weight sat in the engine the whole strategy would differ.
+- **Owner decisions recorded:**
+  1. **Everything ships from the public repo; no private deployment.** This dissolves the AGPL §13 pressure
+     that both `PROJECT_STATE` and the register carried as a hosting blocker. Recorded that the 2026-08-05
+     vendoring entry is *not* superseded — this only resolves the choice it left open — and that a separate
+     engine-only service must now be justified on performance grounds alone.
+  2. **The replay does not gate development.** Explicitly supersedes constraint 5 of the 2026-08-22
+     CLI-before-MCP entry. Noted that the hazard moved rather than vanished: the script still asserts an
+     expected commit total, so the next replay run must recount instead of trusting the recorded 57.
+- **Measurements — the premise was wrong in a useful direction:** `node_modules` is **717 MB**, not 2 GB
+  (the 2 GB is 717 MB + a 1.3 GB `.next`). Engine compiled JS is **1.2 MB**; engine runtime deps **13.5 MB**,
+  of which the needed `.wasm` is **1.2 MB**. Viewer static assets 19.1 MB, `standalone` server output 90 MB.
+  Largest `node_modules` entries are all viewer-side (`@next` 142, `next` 133, `mermaid` 80, `lucide-react`
+  30, `typescript` 22). **The engine has no weight problem; the viewer does.** Engine-only CLI ≈ 15 MB, ≈ 3 MB
+  bundled. So no exotic packaging is needed — the recommendation is to depend on the engine packages first
+  and treat bundling as a later optimization that does not change the user-facing contract.
+- **`repohive` is available on npm** — registry 404 plus a zero-result search. So `npx repohive index .` is
+  achievable unscoped. Also corrected the owner's syntax: `npx` runs rather than installs.
+- **The load-bearing architectural finding:** all three real pages are `"use client"` and fetch over HTTP via
+  SWR, and all 7 route handlers are pure functions of `index/` (read → adapt → JSON). **The viewer therefore
+  has no irreducible server requirement** — move the adapters from request time to index time and it becomes
+  static files. That means `output: "export"` instead of the current `"standalone"`, deleting the route
+  handlers from the shipped build (under export they would bake fixture data via `generateStaticParams`), and
+  pointing `lib/api/client.ts` at relative static paths. One seam swap in the module already designed as the
+  single seam.
+- **Command shape proposed:** `index` as the 95% path, with `parse` / `group` / `view` retained as escape
+  hatches — one primary command *and* three stages, not one or three. The reason for keeping `group`
+  separately invokable is measured: spec Req 4.4 needs boundary sweeps over `group` alone reusing one
+  `graph.json`, and collapsing to one command re-parses at 68.3 s per point, turning a 20-value sweep from
+  ~4 minutes into ~25. Picked `.repohive/` over `repohive-out/` as the default output dir (conventional,
+  gitignore-friendly, discoverability comes from the completion message) and said so as a taste call.
+- **Correction to my own earlier claim:** I had recorded Path 1 and Path 2 as having nil overlap. True for
+  files, false for dependencies — the heavy client libraries (`recharts` 12 importers, `d3-hierarchy` 5,
+  `elkjs` 3, `shiki`, `mermaid`) are reachable almost only from dead pages, so **Path 1's subtractive pass is
+  upstream of the CLI's shippable viewer.** Also priced the consequence for component choice: `DsmMatrixView`
+  is a plain CSS table and free, while a donut drags in `recharts`. Stage 1 of the CLI is unaffected.
+- **Honesty notes:** the strategy is marked **proposed, not decided** in the register, and five specific
+  questions are recorded as blocking the CLI requirements spec. I did **not** attempt a trial `output:
+  "export"` build, so static-export feasibility is inferred from the config and the page/handler shapes
+  rather than demonstrated — recorded in the register's not-verified list, along with the untested
+  `@repohive` scope. No gates run; no code changed, only markdown.
+- **Next:** owner answers the five distribution questions, then the CLI requirements spec gets written.
+  Seams, MCP and cloud are explicitly queued behind that. Still owed: the academic deadline, and
+  foundation-first vs. build-the-surface-directly.
+
+## 2026-08-23 18:56 — Viewer scope narrowed to the hierarchical map; a claim retracted
+
+- **What:** Owner asked to be taught how npm packaging works (`src` vs `dist`, why three packages, what
+  bundling means), narrowed the CLI's viewer requirement to the hierarchical viewer only, pressed the question
+  I had skipped about *why* the `web-tree-sitter` and Node-version inconsistencies exist, and asked for an
+  explain-only assessment of additional-language support. Measured what the hierarchical viewer actually
+  depends on, which changed the distribution answer. Prepended one `DECISIONS` entry, updated
+  `PROJECT_STATE`, and revised `.kiro/workstreams.md` Paths 1 and 2 plus a new appendix.
+- **Owner decision recorded:** the CLI ships the **hierarchical viewer only**; other surfaces are bonus if
+  they add no weight.
+- **The measurement that drove it:** `packages/ui/src/zoom` is 20 files / 116 KB and its **only**
+  bare-specifier imports are `react` and two constants from `@repohive/types/health`. The chrome
+  (`web/src/components/zoom`, 6 files / 31.5 KB) adds only `lucide-react`, `next/link` and `sonner`. No
+  Next.js, sigma, recharts, d3, elkjs or mermaid. So the artifact is a purpose-made single-page bundle of
+  ~300–500 KB, and **static-exporting the vendored Next.js app is unnecessary.** Withdrew that plan but kept
+  its recipe visible in the register, since it is still correct if a future artifact must carry several
+  vendored surfaces.
+- **Retraction.** At 18:25 I recorded that Path 1's subtractive pass was upstream of the CLI's shippable
+  viewer. That held only while the CLI was to ship the whole vendored app. It is not, so the dependency
+  dissolves and Path 1 is purely about the demo surface again. Struck in three places — the Path 1 section,
+  the parallelism map, and the staging plan — following the same keep-the-reasoning-visible convention used
+  for the AGPL and replay strikes. **Two of my own claims have now needed retracting inside one day**; both
+  came from asserting a consequence before the scope it depended on was settled.
+- **Answered the skipped question properly.** `web-tree-sitter` is not drift: `ast-extractor.ts` states the
+  reason (avoiding native-compilation friction across platforms and CI), and it is **load-bearing for the
+  CLI** — native `tree-sitter` needs node-gyp, a C++ toolchain and a per-Node-version rebuild, which would
+  break `npx repohive` on a stranger's machine. A good call documented in the wrong place. The Node test
+  failure is about *who expands the star*: bash expands `dist/*.test.js`, `cmd.exe` does not, and Node 21+
+  added its own expansion while Node 20 has none — so Node 20 + Windows leaves nobody to expand it. The
+  attempted fix `node --test dist/` is worse, because on Node 21+ it silently resolves to `dist/index.js` and
+  reports green.
+- **Named the drift as systemic** rather than treating each instance as a one-off: all five findings were
+  prose asserting facts that live in `package.json`, `tsconfig.json` or source, with nothing checking them —
+  and these are the files an agent reads first, so stale claims misdirect rather than merely misinform.
+  Offered a mechanical audit of every steering claim; **not yet accepted**, and recorded as a risk with that
+  status so it is not assumed done.
+- **Language support:** recorded in the register as an appendix marked **explored on request, explicitly not
+  planned**, so a later reader cannot mistake it for scope. Evidence is the per-file Java-coupling count, whose
+  useful result is that `stitcher.ts` — the 18.6 KB module doing the hard cross-file resolution — has only two
+  Java references and both are comments. Tiered Kotlin/C#/Scala, Go/Python, TS/JS (the deceptive one, because
+  path-based imports invalidate `source-root.ts`'s whole premise), C/C++/Rust. The contract absorbs tiers 1–2
+  unchanged, which is genuine validation of it.
+- **Honesty notes:** no code changed, so no gates apply. The 300–500 KB figure for the single-file viewer is
+  an **estimate from the import graph, not a built artifact** — no trial bundle was produced. Likewise
+  `output: "export"` feasibility was never demonstrated, which now matters less since that path is withdrawn.
+- **Next:** owner answers the CLI distribution questions, now including which bundler builds the single-file
+  artifact — `stack.md`'s "do not reintroduce Vite" rule targets the viewer app rather than a CLI artifact
+  builder, but any bundler reintroduction needs an explicit ruling. Then the CLI requirements spec. Seams,
+  MCP and cloud remain queued behind it.
+
+## 2026-08-23 19:05 — Open-decision list consolidated; two drift defects of my own fixed
+
+- **What:** Owner asked for the full set of open decisions. Enumerating them surfaced that my own records were
+  incomplete and partly stale, so I rewrote the register's open-decisions section as the single authoritative
+  list (15 items, grouped by what each blocks, with recommendations) and made `PROJECT_STATE` point at it
+  instead of keeping a second copy.
+- **Why:** Answering the question was straightforward; the defects it exposed were the actual work.
+- **Two drift defects, both mine, both introduced today:**
+  1. **The register's open-decisions section was incomplete.** Items 8 (version policy), 12 (duplicate
+     registers), 13 (where the uncommitted memory work lands), 14 (`fable-work` merge review) and 15 (archive
+     repo still public) were all live and none was listed. They went missing because I kept extending other
+     parts of the file — Path 2, the appendix, the parallelism map — without folding the consequences back
+     into the decision list.
+  2. **`PROJECT_STATE`'s "Still owed by the owner" line still named the replay conflict**, which the owner
+     resolved at 18:25 and which I struck in three other places in the same file. A fourth mention survived.
+- **Structural fix, not just a patch.** Both defects have the same cause: **two parallel lists of the same
+  thing.** `PROJECT_STATE` now carries a pointer plus the single item that reorders everything (the deadline
+  question), and the register states outright that it is authoritative and records why. Same reasoning as
+  moving the per-path estimates out of `PROJECT_STATE` earlier — a duplicated list is a list that will drift.
+- **Observation worth carrying:** every drift defect found today, mine and the pre-existing ones, is an
+  instance of *the same class* — a fact asserted in two places with nothing reconciling them. That is a
+  stronger argument for the offered mechanical audit than the individual findings were, and it suggests the
+  audit should check for duplicated assertions across files, not only claims that disagree with code.
+- **No `DECISIONS` entry:** the owner asked a question and decided nothing. All 15 items remain open.
+- **Honesty notes:** no code changed, so no gates apply. `PROJECT_STATE` is 189 lines, still above the ~150
+  guideline; the pointer-instead-of-copy change reduced it slightly and a deliberate prune is still owed.
+- **Next:** owner answers the decisions, starting with the deadline question since it reorders the rest. Items
+  1–9 block the CLI requirements spec.
+
+## 2026-08-23 19:21 — Nine owner decisions locked; seam-vs-contract distinction established
+
+- **What:** The owner answered most of the open-decision list and asked for teaching on four items (how an
+  npm install produces a command, semver and publishing, what "lockstep 0.1.0" meant, which bundler is
+  future-proof) plus a real analysis of whether seam work must precede the CLI. Prepended **four** `DECISIONS`
+  entries, rewrote the register's open-decisions list around what is actually left, extended Path 2 with the
+  install mechanics and command bodies, and pruned `PROJECT_STATE` of the sequencing and merge material that
+  is now moot.
+- **Owner decisions recorded:** academic deadline is **live** and viewer polish suffices for it (component
+  choice parked) · **all workstreams run in parallel worktrees**, which closes the sequencing question
+  outright · output directory **`.repohive/`** · packaging is **four published packages with the CLI depending
+  on three** · `fable-work` is **default with no merge**, branch placement and git/replay plans out of scope ·
+  the steering-drift audit and the duplicate-register question are **deferred pending an explicit call**, with
+  nothing to be deleted.
+- **The analysis that mattered — seams do not block the CLI.** Only **orchestration** of the four seams is a
+  CLI prerequisite, and `repohive index` *is* that layer. Source provider, storage interface and snapshot ids
+  are all safely retrofittable, because adding an interface behind an existing function is
+  backwards-compatible when the default is preserved — and that is already the house pattern
+  (`parseProject(options, deps = defaultDeps())`, `IndexSerializerDeps`). So the owner's worry that changing
+  seams later would break the CLI does not hold.
+  **The inversion worth keeping:** what *cannot* be retrofitted is the published surface — the `.repohive/`
+  layout, command and flag names, `--json` shape, exit codes. Once anyone writes CI around `repohive index
+  --json`, those are a major version. So the CLI is blocked on nailing its contract, not on seam work. That
+  reframing is now a `DECISIONS` entry because it governs what gets careful attention.
+- **The risk going parallel creates, and its fix.** Orchestration is needed by both the CLI and the hosted
+  path. Parallel worktrees each building their own produces two incompatible implementations and an
+  unresolvable merge. Recorded mitigation: **define the orchestration package's interface first** — one file
+  of type signatures, a couple of hours — so both code against it while the seam worktree implements it.
+  Flagged as a must-do-before-anyone-writes-orchestration-code item in three places.
+- **Corrected the owner, carefully.** They said "I dont think group ever takes 68 seconds, only 10 seconds at
+  max" — they are right about `group` (**11.3 s** measured) and had read my claim as being about it. My claim
+  was about **`parse`** (68.3 s), which a single-command-only design would redo on every sweep point. Rewrote
+  the register's wording to state both numbers explicitly with the arithmetic (20-point sweep: ~26 min versus
+  ~5 min), since the original phrasing was technically accurate but evidently misreadable.
+- **Recommendations given but NOT recorded as decided:** the full four-command surface (only `index` as
+  primary was accepted), final command names (recommended keeping `index`/`parse`/`group`/`view` and adding
+  `describe`, with the rejected alternatives tabled), version policy (**lockstep at `0.1.0`**, with the
+  reasoning for `0.x` over `1.0.0`), and the bundler (**Vite + `vite-plugin-singlefile`** for the viewer,
+  `tsup`/esbuild for the CLI). All four are marked open in the register and all four block the CLI spec.
+- **Deliberately did not do:** amend `stack.md`'s "do not reintroduce Vite" rule. It would need amending if the
+  Vite recommendation is taken, but amending ahead of the decision would presume the answer. Recorded as
+  pending inside the bundler item instead.
+- **Honesty notes:** no code changed, so no gates apply. `PROJECT_STATE` came down from 194 to a smaller
+  figure by deleting the sequencing debate, the merge review and the branch-placement material rather than by
+  compressing live content — the prune I had owed since 18:56 fell out of the decisions instead of needing to
+  be forced.
+- **Next:** four decisions to close (command surface, names, version policy, bundler), then the CLI
+  requirements spec. The orchestration interface definition should land before any worktree starts on it. Seam
+  design spec runs concurrently in its own worktree.
+
+## 2026-08-23 19:26 — Correction to the 19:21 entry: the PROJECT_STATE prune did not really happen
+
+- **What:** The 19:21 entry says `PROJECT_STATE` "came down from 194 to a smaller figure" and that the owed
+  prune "fell out of the decisions instead of needing to be forced." Measured: **194 → 192 lines.** Two lines.
+  Technically smaller, but the sentence implies a real reduction and that is not what happened.
+- **Why it netted almost nothing:** deleting the sequencing debate, the merge review and the branch-placement
+  material removed roughly a dozen lines, and the new execution-shape paragraph plus the orchestration
+  de-conflict note added roughly the same back. Real deletion, real addition, no net prune.
+- **Status:** the prune is **still owed**, now three sessions running. The honest candidates remain what they
+  were at 18:05 — retiring risk entries that have outlived their usefulness, or moving *Measured fixture
+  results* and *Viewer surface reality* into the register, both of which duplicate material that already lives
+  there. Both are judgement calls for the owner rather than silent trims, which is why they keep not happening.
+- **Note to self:** this is the third time in one day a claim of mine needed correcting, and the pattern is
+  consistent — asserting an outcome in the same breath as doing the work, before measuring it. The fix is
+  mechanical: measure first, then write the sentence.
+
+## 2026-08-23 20:50 — CLI spec unblocked; steering's tool lists ruled extensible; seam explained plainly
+
+- **What:** Owner closed the four remaining CLI decisions and asked for the seam concept in plain language.
+  Verified `vite-plugin-singlefile` against the npm registry before committing to it, amended `steering/stack.md`
+  (now authorized), prepended two `DECISIONS` entries, and marked the four register items decided.
+- **Owner decisions recorded:** command surface and names **final** as `index` / `parse` / `group` / `view` with
+  `describe` deferred · install guidance `npm i -g repohive` → `repohive index .`, or `npx repohive index .` ·
+  release at **`0.x`** · bundler **Vite + `vite-plugin-singlefile`** · and a meta-ruling that
+  **`stack.md`'s tool lists are extensible, not boundaries** — new tools admitted when the work demands them.
+- **The meta-ruling matters more than it looks.** I had been reading "not used, do not reintroduce Vite" as a
+  prohibition and had deliberately declined to amend it at 19:21 on the grounds that amending ahead of the
+  decision would presume the answer. The owner's ruling clarified the line's actual purpose: protect
+  `packages/web`'s dependence on Next.js, not forbid all additions. `stack.md` now narrows the Vite line, states
+  the extensibility rule, and keeps AGPL licence compatibility as the one hard constraint. Declining to amend
+  early was still right — the amendment landed with authority rather than assumption.
+- **Verified before committing:** `vite-plugin-singlefile@2.3.3`, MIT, one dependency (`micromatch`),
+  peer-supports Vite 5–8, stated purpose "inlining all JavaScript and CSS resources". MIT is AGPL-compatible.
+  Recommending a tool without checking it exists and is maintained would have been the easy mistake here.
+- **Corrected the owner again, on the same numbers as last turn.** They said indexing broadleaf "would take
+  roughly 20 seconds". Measured: `parse` 68.3 s + `group` 11.3 s ≈ **80 s**. The 20 s figure matches nothing
+  recorded. They had also read "sweep" as meaning an index run; a sweep is a **research procedure** (Req 4.4)
+  that runs `group` ~20 times over one unchanged `graph.json`. Rewrote that register section a second time with
+  a three-row table and the explicit note that **`group` is the fast half** — the argument was always about
+  avoiding 20 redundant *parses*. Two misreads of the same passage means the passage was the problem, not the
+  reader.
+- **Explained the seams in plain language.** The owner's worry was that supporting "fetch from a link" would
+  displace "read from a folder" and break the CLI. The answer is that a seam *adds* plugs rather than replacing
+  behaviour, and the local-folder plug stays the **default** — `parseProject(options, deps = defaultDeps())` is
+  already that pattern in their own code, so nothing needs specifying at the call site. Framed the four seams as
+  source provider / storage / orchestration / snapshot ids, with which each unlocks and who plugs into it. No new
+  decision; the seam design spec is still owed and still belongs in its own worktree.
+- **Honesty notes:** lockstep versioning is recorded as **assumed, not confirmed** — the owner said "we can
+  release with the 0. version", which agrees to `0.x` but does not explicitly settle whether all four packages
+  share one number. Flagged in both the entry and the register rather than quietly recorded as decided. No code
+  changed, so no gates apply. `PROJECT_STATE` prune still owed, fourth session running.
+- **Next:** owner chooses between the CLI requirements spec and the orchestration signature. Recommended the
+  signature first — it is a couple of hours and it is the only thing that must precede parallel worktrees
+  touching orchestration.

@@ -9,6 +9,374 @@ undone.
 
 ---
 
+## 2026-08-23 — Steering's tool lists are extensible, not boundaries
+
+**Decided.** The lists in `steering/stack.md` are **not hard boundaries**. New tools and dependencies may be
+added when the work genuinely demands it.
+
+**Why.** Owner ruling, given while approving Vite for the CLI artifact: "It is not a strict boundary for the
+items specified in the stack. New items can be added if our work demands it." The blanket
+"do not reintroduce Vite" line had been read — by me — as a prohibition, when its actual purpose was narrower.
+
+**Constrains.**
+
+1. **Read "not used, do not reintroduce" as "do not swap out a working choice for this without a decision,"
+   not as "never introduce anything new."** The genuine constraint it protects is that `packages/web` must
+   stay on Next.js, because the vendored packages require it.
+2. **Any addition still gets recorded**: a `DECISIONS.md` entry plus the `stack.md` update in the same change.
+3. **Licence compatibility with AGPL-3.0-or-later remains a hard rule** and is not relaxed by this.
+4. `stack.md` amended in this change to say all of the above, and to narrow the Vite line rather than leave a
+   rule that contradicted an approved decision.
+
+## 2026-08-23 — The CLI requirements spec is unblocked: surface, names, version and bundler locked
+
+**Decided.** The four items that blocked the CLI requirements spec are closed.
+
+- **Command surface.** `index` / `parse` / `group` / `view`, one binary dispatching on the first argument.
+  `describe` is **deferred** — a good idea, implemented later, not part of the first spec.
+- **Command names finalized as those four.** No renaming.
+- **Install guidance:** recommend `npm i -g repohive` in the README, giving `repohive index .`; offer
+  `npx repohive index .` as the no-install alternative. (`npm repohive index` is not valid syntax and must not
+  appear in any documentation.)
+- **Version: release at `0.x`.** Taken as **lockstep `0.1.0`** — all four packages share one number and move
+  together — since that was the recommendation being agreed to. **Flagged back to the owner for explicit
+  confirmation;** if independent versioning was meant instead, this entry needs a successor.
+- **Bundler: Vite** with `vite-plugin-singlefile` for the single-file viewer artifact. Verified 2026-08-23:
+  version 2.3.3, MIT, one dependency, supports Vite 5–8, and its stated purpose is inlining all JS and CSS.
+  `tsup` or esbuild remains the pick for bundling the CLI itself, if that is ever done.
+
+**Constrains.**
+
+1. **These four are now part of the published contract** and sit alongside the `.repohive/` layout, the flag
+   names, the `--json` shape and the exit codes. Changing any of them after the first publish is a major
+   version and a broken build for anyone scripting against it.
+2. **Write the requirements spec before any CLI code** (2026-08-22 constraint 3 still stands), and do the Node
+   test-script fix before the extraction (constraint 4).
+3. **Define the orchestration function's signature before either the CLI or hosted worktree writes
+   orchestration code.** One small file. Both will call it, and two independent versions would be an
+   unresolvable merge. This is the one sequencing item left inside a parallel plan.
+4. **`repohive index` on a mature repo is ~80 s, not ~20 s** (broadleaf: `parse` 68.3 s + `group` 11.3 s,
+   measured 2026-08-22). Do not quote 20 s. The sweep arithmetic that justifies keeping `group` separately
+   callable is about avoiding **20 redundant parses**, not about `group` being slow — `group` is the fast half.
+
+## 2026-08-23 — Repo posture: `fable-work` is the default branch, no merge, git plans out of scope
+
+**Decided.** `fable-work` is treated as the default branch. **No merge to `main` will happen.** Branch
+placement of memory and doc commits is not a concern for now, and the git/replay plans are outside the scope
+of workstream planning.
+
+**Constrains.**
+
+1. **Stop flagging that memory and doc changes "belong on `main`".** `conventions.md` says so, but the owner
+   has set that aside; `fable-work` is where work lands. Do not raise it each turn.
+2. **Remove the `fable-work` merge review from any next-up list.** It is not pending; it is not happening.
+3. **Do not surface the replay or the archive-repo visibility as workstream blockers.** Both stay recorded —
+   the archive repo is a live exposure of the gap and fix registers and that fact must not be deleted from
+   the record — but neither is to be raised as part of path planning. Owner-owned, deliberately out of scope.
+4. Two register items are **deferred pending an explicit owner call**, not resolved: the systematic
+   steering-drift audit, and which copy of the duplicated `gaps` / `fixes` / `edge-case-audit` registers wins.
+   Do not act on either without being asked. **Nothing may be deleted** in the duplicate-register case.
+
+## 2026-08-23 — CLI distribution: output directory and packaging shape locked
+
+**Decided.**
+
+- **Output directory is `.repohive/`**, with `--out` to override.
+- **Packaging shape: publish four packages** — `@repohive/shared`, `@repohive/parser`, `@repohive/core` as
+  libraries, plus `repohive` as the CLI — with **the CLI depending on the three rather than bundling them**
+  (~15 MB installed, measured). Bundling to ~3 MB is a later optimization.
+
+**Why.** `.repohive/` matches the `.next` / `.turbo` convention, stays out of the way, and is
+gitignore-friendly; discoverability comes from printing the absolute path on completion rather than from the
+folder being visible. On packaging: the three engine packages must be published as libraries regardless,
+because the MCP server and the hosted service import `core` directly and must not shell out to a CLI. Since
+bundling does not change what a user types, it can be applied later without a visible change.
+
+**Constrains.**
+
+1. **The `.wasm` files can never be bundled into JavaScript.** Any future bundled CLI must still ship
+   `web-tree-sitter.wasm` and `tree-sitter-java.wasm` as real files and locate them via `GrammarOptions` —
+   the escape hatch that already exists in `ast-extractor.ts` for exactly this.
+2. **`.repohive/` and everything in it is a published contract from the first release.** So are the command
+   names, the flag names, the `--json` shape and the exit codes. See the seam entry below: internal seams are
+   cheap to change later, this surface is not.
+3. **Still open and blocking the CLI requirements spec:** the full four-command shape (only `index` as
+   primary is accepted so far), final command names, version policy, and the bundler. Recommendations are
+   recorded in `.kiro/workstreams.md`; none is decided.
+
+## 2026-08-23 — The academic deadline is live; all workstreams run in parallel worktrees
+
+**Decided.**
+
+- **An academic deadline is in play.** The viewer is already implemented, so **polishing it with a few more
+  relevant components is sufficient** for that deliverable. Which components is a separate conversation,
+  deliberately deferred until the CLI and seam questions are settled.
+- **Every workstream runs in parallel, in its own worktree** — viewer, CLI, seams, and the rest.
+
+**Why.** Owner's call on both. The parallel decision resolves the sequencing question that had been open
+since 2026-08-22: it is no longer "which path first" but "all of them, concurrently."
+
+**Constrains.**
+
+1. **The sequencing question is closed.** Do not re-propose an ordering. The 2026-08-22 "CLI next" entry
+   remains correct about the CLI being built; it is simply no longer exclusive.
+2. **Do not start the viewer-component brainstorm.** The owner has explicitly parked it. Path 1 of the
+   register stays as reference until then.
+3. **Orchestration is now contested between worktrees, and that is the live parallelism risk.** Both the CLI
+   and the hosted path need a parse→group layer. If each worktree builds its own, the result is two
+   incompatible implementations and an unresolvable merge. **Mitigation: define the orchestration package's
+   interface first** — one file of type signatures, a couple of hours — so both worktrees code against it
+   while the seam worktree supplies the implementation. Do this before either worktree writes orchestration
+   code.
+4. **Memory files serialize across worktrees.** `DECISIONS.md` is append-only newest-first and
+   `PROJECT_STATE.md` is rewritten in place, so parallel agents must land memory one at a time. This is now a
+   practical constraint rather than a theoretical one.
+
+## 2026-08-23 — Internal seams are retrofittable; the published CLI surface is not
+
+**Decided (analysis accepted as the basis for sequencing, and it is why seam work does not block the CLI).**
+Of the four foundation seams, **only orchestration is a CLI prerequisite**, and the CLI naturally contains it:
+
+| Seam | CLI needs it? |
+|------|---------------|
+| Orchestration (parse → group in one call) | **Yes** — `repohive index` *is* this layer |
+| Source provider (parse a non-directory source) | No — the CLI always has a real directory |
+| Storage interface (read/write off the filesystem) | No — the CLI writes to disk |
+| Content-addressed snapshot ids | Partly — enables `index` skipping an unchanged parse; essential only for hosting |
+
+**Why retrofitting is safe.** Adding an interface behind an existing function is backwards-compatible when the
+default is preserved, and this is already the house pattern: `parseProject(options, deps = defaultDeps())`
+and `IndexSerializerDeps` both inject their filesystem dependencies with a real-fs default, leaving existing
+callers untouched. The source provider and the storage interface can be added the same way, later, without
+breaking the CLI.
+
+**Constrains.**
+
+1. **Do not block the CLI on seam work.** Block it on the artifact layout and the CLI contract instead.
+2. **These are expensive-to-change and must be right before the first publish:** the on-disk layout of
+   `.repohive/`, command names, flag names, the `--json` output shape, and exit codes. Once anyone writes CI
+   around `repohive index --json`, changing them is a major version and a broken build for them.
+3. **The seam design still gets a proper spec**, written in the seam worktree, concurrently with CLI work —
+   the owner asked for a careful, storage- and source-agnostic analysis, and that is a spec deliverable rather
+   than an improvised decision.
+
+## 2026-08-23 — The CLI's shipped viewer is the hierarchical viewer only
+
+**Decided.** The only viewer surface the CLI artifact must carry is the **hierarchical (semantic-zoom)
+viewer**. Flat baseline, decision audit and anything else are bonus, admissible only if they do not make the
+package heavy.
+
+**Why.** Owner's call on scope. It is also strongly supported by measurement taken the same day:
+`packages/ui/src/zoom` is 20 files / 116 KB and its **only** bare-specifier imports are `react` and two
+constants from `@repohive/types/health`. The chrome around it (`web/src/components/zoom`, 6 files / 31.5 KB)
+adds only `lucide-react` (tree-shakes to a few icons), `next/link` (replaceable with `<a>`) and `sonner`
+(droppable). No Next.js, sigma, recharts, d3, elkjs or mermaid — the canvas paints itself.
+
+**Constrains.**
+
+1. **Do not static-export the Next.js app for the CLI.** The previously proposed "Stage 2 = `output:
+   "export"` of the vendored app" is **withdrawn**. Build a purpose-made single-page artifact instead:
+   React + `ZoomCanvas` + the `ZoomMap` inlined. Estimated 300–500 KB as one self-contained `.html`.
+2. **Stages 2 and 3 of the viewer plan collapse into one.** The single-file HTML is the target, not a
+   later bonus.
+3. **Retracts the 18:25 claim that Path 1's subtractive pass is upstream of the CLI's shippable viewer.**
+   That held only while the CLI was to ship the whole vendored app. It is not. The 26 dead and 22 redirect
+   pages are irrelevant to the CLI, and Path 1 returns to being purely about the demo surface. The
+   component-weight advice in Path 1 (a donut costs `recharts`, the DSM is free) still applies to the
+   *demo*, not to the CLI.
+4. **A bundler for the CLI artifact is an open decision, not an assumption.** `steering/stack.md` lists
+   Vite under "not used, do not reintroduce" because Next.js is required by the vendored packages. That rule
+   governs the viewer app; a small separate bundler for the CLI artifact is a different thing but is still a
+   reintroduction, so it needs an explicit decision. `esbuild` is already present transitively.
+5. The three real surfaces in `packages/web` are unaffected. This decision is about what the **CLI ships**,
+   not about what the local dev viewer contains.
+
+## 2026-08-23 — Everything ships from the public repo; no private deployment
+
+**Decided.** The engine, the viewer and any hosted instance all ship from the public repo. There will be no
+closed-source or private deployment of any part of RepoHIVE.
+
+**Why.** Owner's call. It settles a question the 2026-08-05 vendoring entry had left as an accepted cost.
+
+**Constrains.**
+
+1. **The AGPL §13 pressure is gone as a design constraint.** `PROJECT_STATE` and `.kiro/workstreams.md`
+   both carried a blocker to the effect that because `packages/web` imports `@repohive/core` in three
+   modules, serving the app pulls the engine inside the network-use obligation, and that
+   "open-source the viewer, keep the engine closed" was therefore unavailable. **That option is now
+   explicitly not wanted**, so the constraint no longer shapes anything. Stop citing it.
+2. **The 2026-08-05 vendoring entry is not superseded** — its reasoning and its accepted cost both stand.
+   This entry only resolves the choice that entry left open.
+3. **Do not architect a separate engine-only read service for licence reasons.** If one is built it must be
+   justified on performance or operational grounds alone. AGPL is no longer an argument for it.
+4. Attribution obligations are unchanged: upstream repowise credit stays in `NOTICE`, and the repo stays
+   AGPL-3.0-or-later.
+
+## 2026-08-23 — The public-repo replay does not gate development
+
+**Decided.** The replay of history into the public repo is independent of ongoing development and **is not
+a blocker for starting any workstream.**
+
+**Why.** Owner's call. The replay is a packaging exercise on a separate track.
+
+**Constrains.**
+
+1. **Supersedes constraint 5 of the 2026-08-22 "CLI next, MCP deferred" entry**, which said the unresolved
+   replay conflict gated where new work lands. It no longer does. New work may be committed without first
+   draining the replay.
+2. **The mechanical hazard is unchanged and still real.** `05-append-new-batches.ps1` asserts an expected
+   commit total (currently **57**). New commits on `fable-work` move that number, so whoever next runs the
+   replay must **recount rather than trust the recorded 57**, and must not apply on an unexpected number.
+   The gate moved from "before development" to "before replaying" — it was not removed.
+3. Replay progress stays tracked in `docs/plan/replay/new-work-replay-plan.md`.
+
+## 2026-08-23 — The four forward paths get one tracked register
+
+**Decided.** `.kiro/workstreams.md` is the single authoritative record for the four post-engine paths
+(component reuse, packaged CLI, MCP server, hosted deployment): their scope, blockers, prerequisites and
+effort estimates. `PROJECT_STATE.md` carries a one-line summary per path and a pointer, not the detail.
+
+**Why.** The same analysis was produced from scratch on 2026-08-22 and again on 2026-08-23, both times in
+chat only, and both times lost at session end. It is large, it is mostly stable, and re-deriving it costs a
+session each time. It also does not belong in `PROJECT_STATE.md`, which is a snapshot under a length limit,
+nor in `DECISIONS.md`, which records choices rather than scope.
+
+Placed in `.kiro/` rather than `docs/plan/` because **`docs/plan/` is git-ignored via
+`.git/info/exclude:31`** — a register written there would never be tracked. This matches where the other
+tracked working registers live (`.kiro/gaps.md`, `.kiro/fixes.md`, `.kiro/edge-case-audit.md`).
+
+**Constrains.**
+
+1. **Answer path scope and blocker questions from `.kiro/workstreams.md`; update it instead of
+   re-analysing.** If it disagrees with the code, the code wins — fix the register in the same change.
+2. **Correction carried by that register, to the premise of the 2026-08-22 live-indexing entry.** That entry
+   states "`ParseDeps.collector` is the existing injection point" for the source-provider seam. Verified
+   2026-08-23: necessary but not sufficient. The parser reaches the filesystem in **three** injectable but
+   unwired places — `deps.validator.validate` (runs first, short-circuits), `deps.collector.collect`, and
+   `ast-extractor.ts`'s `defaultDeps.readFile` — and `ParseOptions.projectDirectory` is a required
+   `string`. Swapping the collector alone will not admit tarballs or in-memory sources. **The decision
+   itself is unchanged and not superseded**; only its cost estimate for that one item moves upward.
+3. **No sequencing decision was made in this session.** The 2026-08-22 CLI-first decision stands. A
+   recommendation to take Path 1 (component reuse) first, on the grounds that it has no prerequisites and a
+   judge panel is imminent, was put to the owner and **has not been accepted**. Do not treat it as adopted.
+4. **Do not place durable documentation under `docs/plan/`.**
+
+**Also landed as consequences, not decisions** — four documentation claims that disagreed with the code,
+corrected per `stack.md`'s own "the code wins" rule: the engine dependency table (native `tree-sitter` →
+`web-tree-sitter` 0.26.10 WASM + `tree-sitter-java` 0.23.5); `packages/cli` described as wiring the
+pipeline when it holds only `.gitkeep`; the storage seam described as complete when it is write-only; and
+`docs/group-naming.md`'s "nothing here is implemented yet" header when Tier 1 has shipped. The engine
+test-script claim in `stack.md` was also reconciled with `verification.md` — neither form of the command
+works on both Node versions.
+
+## 2026-08-22 — Live indexing of public repos is a product requirement, not an option
+
+**Decided.** The hosted surface must demonstrate **live indexing**: paste a public repo URL, watch it
+index, browse the result, with no signup for public repos. Authentication is deferred and added only if
+its cost is small relative to the indexing work. A pre-indexed-only deployment is therefore not
+sufficient, though pre-warming remains useful as demo insurance.
+
+**Why now.** Wall-clock was measured for the first time (recorded in `PROJECT_STATE.md`): `parse`
+broadleaf 68.3 s, `group` broadleaf 11.3 s, `parse` vantage 4.7 s. **A full pipeline run on a mature
+multi-module repo is ~80 s**, and broadleaf is the worst case rather than the typical one. That makes
+on-demand indexing a watchable operation, so the queue/broker/worker-fleet/polling architecture sketched
+earlier in the session is unnecessary — it was designed against a guessed cost, not a measured one.
+
+**Constrains.**
+- **The parser must stop requiring a local directory.** `parseProject` walks a filesystem path; it needs a
+  source-provider seam yielding `{path, content}` in canonical order. `ParseDeps.collector` is the existing
+  injection point. This one change is what admits GitHub tarballs, zip uploads, in-memory tests, monorepo
+  subpaths, and eventually unsaved editor buffers for the extension — a shape no directory walker can
+  represent.
+- **Storage must become an interface** (`get`/`put`/`has`), replacing direct `node:fs` use in `parseIndex`
+  and `serializeIndex`.
+- **Snapshot ids are content-addressed** over `(repoUrl, commitSha, engineVersion, configDigest)`.
+  Determinism makes this sound and is what makes live indexing affordable: a repo is indexed once, ever.
+  This is the first point where determinism pays as a product property rather than a correctness one.
+- **`groupGraph` must not run on the request thread.** It is synchronous and CPU-bound — 11 s of blocked
+  event loop on broadleaf — so the pipeline runs in `worker_threads`. Because it is already a pure
+  function, the same worker code later lifts into a separate service unchanged.
+- **Progress is a first-class engine output**, carried over SSE. For this product it is the demonstration
+  itself: the recorded per-region decision is the differentiator, and progress is the only way to show it
+  happening rather than assert it.
+- **Fetch by codeload tarball, not `git clone`** — one request, no git binary, no discarded history.
+- **The public endpoint needs guard rails before it ships:** size and file-count caps checked via the
+  GitHub API before download, per-job timeout, global concurrency cap, per-IP rate limit,
+  `https://github.com/owner/repo` validation only (arbitrary git remotes are an SSRF hole), and extraction
+  hardened against path traversal and decompression bombs. Mitigating factor: the engine parses source and
+  never executes it, and persists no source text.
+- **`visibility` goes on the snapshot from day one** even while everything is public, so private-repo auth
+  is additive. The real auth cost is private repos (OAuth plus user-token storage), not sessions.
+- **The indexer does not live inside `packages/web`.** Reads served from an engine-only service keep the
+  AGPL options open, per the 2026-08-05 vendoring entry.
+
+## 2026-08-22 — The packaged CLI is the next workstream; MCP is deferred behind it
+
+**Decided.** `packages/cli` is the next thing built. The MCP server is deferred, not dropped.
+
+**Why.** Owner's call, made against an analysis that had ranked MCP *higher* on strategic value. No reason
+was given beyond "for now", so this is recorded as a sequencing choice rather than a reversal of that
+analysis. The analysis it was chosen against, which stands and should not be re-argued:
+
+- An MCP server is **distribution, not differentiation**. The code-graph-MCP space is crowded (Ctxo,
+  code-impact-mcp, Recon, agentic-codebase, code-review-graph, Sverklo, codebase-memory-mcp), several
+  Tree-Sitter based and several shipping blast radius by name.
+- MCP **does not depend on the CLI**, contrary to `positioning/roadmap.md`'s claim that the CLI is the
+  keystone every other surface wraps. An ecosystem package may import `core` directly, and `parseIndex` and
+  `analyzeBlastRadius` are already exported. Nothing was unblocked by choosing CLI first.
+- The CLI is largely already written: `core/src/group-cli.ts` carries the flag surface, validation and a
+  testable `main(argv) → exit code`, and the parser has its equivalent. It is an extraction.
+
+**Constrains.**
+
+1. **Do not re-propose MCP-first.** The comparison was made and the owner chose. Revisit only if the owner
+   asks or the deadline picture changes.
+2. **Do not rest any future claim on "we have an MCP server."** The differentiator remains the recorded,
+   deterministic per-region preserve/reconstruct decision, which none of the surveyed tools expose.
+3. The CLI starts from a **requirements spec**, not code. The flag surface is owner-reviewable first.
+4. Sequence the Node test-script fix before the extraction, so the CLI inherits a runner that works on both
+   Node 20 and 21+.
+5. **The replay conflict is unresolved and gates where this work lands.** New commits on `fable-work` move
+   the replay count off the asserted 57. Either drain the replay first or branch the CLI work and freeze
+   `fable-work`. Do not start committing to `fable-work` on the assumption this is settled.
+
+---
+
+## 2026-08-22 — Replay classification goes by post-filter paths, never by commit subject
+
+**Decided.** A commit's replay disposition is determined by **which paths it still touches after the path
+filter runs**, not by its type prefix or subject wording. Every `docs:` or `kiro(...)` commit assumed to
+self-empty must be confirmed empty in a dry run before it is treated as dropped.
+
+**Why.** Classifying 76 commits by subject produced three wrong calls, caught only because
+`05-append-new-batches.ps1` asserts an expected total and the dry run reported 59 instead of 56:
+
+- `docs: add Fable handoff brief` writes **`FABLE_HANDOFF.md` at the repo root**, outside `docs/`. The
+  filter never touched it and all 360 lines of internal agent brief survived into the batch list.
+- `docs: add generation prompts for all eight paper figures` is **not a pure docs commit**. With `docs/`
+  stripped it still removes a bogus self-referential `"repohive": "file:"` entry from `package-lock.json`
+  and carries three mode-only changes under `packages/ui/scripts/`. Real work behind an academic subject.
+  Kept with a rewritten subject; this is the commit that moved the expected count from 56 to 57.
+- `chore: remove academic reference` edits the **archive** `README.md`, a different document from the
+  public repo's independently injected README.
+
+**Constrains.**
+
+1. Root-level internal files must be named individually in `--invert-paths`; a directory filter will not
+   catch them. `FABLE_HANDOFF.md` is now listed alongside `.kiro`, `docs`, `ui-ideas`, `AGENTS.md`.
+2. **Archive `README.md` commits never replay.** The public README is a separate minimal document; the
+   archive's is the original. Replaying archive README edits either conflicts or drags archive prose
+   across. The deacademization pass will keep generating such commits — exclude each one.
+3. A commit whose subject must be scrubbed but whose surviving content is real gets **retitled**, not
+   dropped. Dropping it would silently lose the code.
+4. `05-append-new-batches.ps1` asserts the expected total, and that assertion is the safety net. If it
+   reports anything other than the planned figure, reconcile before applying.
+
+**Also fixed the hole that hid this.** Step 6b's message pattern lacked `academic`, which is how a commit
+titled "remove academic reference" passed both acceptance tests. Added, with `FABLE_HANDOFF`,
+`paper figure`, `figure prompt`, `journal paper`, `handoff brief`. Deliberately phrases, not bare words:
+the vendored UI calls a surface a "paper wash", so `\bpaper\b` would fail the build on legitimate code.
+
 ## 2026-08-22 — Skills hold procedure; hooks only trigger. One hook survives
 
 **Decided.** Anything an agent can be *asked* to do is a **skill**. A **hook** exists only for what must

@@ -53,7 +53,7 @@ packages/
   types/        shared TS types for the viewer/API surface
   parser/       Tree-Sitter Java → graph.json
   core/         grouping algorithm + blast radius
-  cli/          wires the pipeline
+  cli/          EMPTY (.gitkeep only) — the packaged CLI is not built
   api-client/   framework-free client for the REST surface
   ui/           shared UI components
   web/          Next.js 15 viewer + its route handlers
@@ -61,6 +61,11 @@ packages/
 
 `shared` and `types` are leaf dependencies. `parser` and `core` depend only on `shared`. Nothing in
 `parser` or `core` may import from `web`, `ui`, `api-client`, or `cli`.
+
+**There is no pipeline-orchestration layer.** `parseProject` lives in `parser`, `groupGraphToIndex` in
+`core`, and neither imports the other — parse→group exists only as two root npm scripts. A one-shot
+`index <dir>` therefore has no home yet, and whichever surface is built first absorbs that logic. See
+`.kiro/workstreams.md`.
 
 ## Viewer surface
 

@@ -1,8 +1,25 @@
-# Group naming — problem & solution design (parked)
+# Group naming — problem & solution design
 
-> **Status:** DEFERRED (documented 2026-08-09 18:06). Parked to prioritize the `phase-3-viewer`
-> build. This note captures the problem and the full solution design so it can be resumed with no
-> re-derivation. Nothing here is implemented yet.
+> **Status (corrected 2026-08-23 17:49): Tier 1 is SHIPPED. Only Tier 2 remains.**
+>
+> This header previously read "Nothing here is implemented yet", which was written 2026-08-09 and went
+> stale when Gap 12 closed. Both halves of Tier 1 are live:
+>
+> - **Engine:** every group node carries `regionId` + `ordinal`, and each `regionDecisions` entry carries
+>   `groupIds` (Gap 12 / Fix 6, closed). Measured on-disk 2026-08-22: `vantage` 55/55 groups carry
+>   `regionId`, `broadleaf` 1670/1698 (the 28 being repository-wrapping levels, which belong to no region
+>   by design).
+> - **Viewer:** `packages/web/src/lib/repohive/zoom-labels.ts` composes display labels from them per
+>   spec R6, in exactly one module.
+>
+> **Tier 2** (TF-IDF or LLM prose, hash-keyed sidecar) is the only part still unbuilt. The problem
+> statement below is retained as the design record for it; read the Tier-1 sections as description of
+> shipped behaviour, not as a plan.
+>
+> Note the sidecar convention this document introduced for `labels.json` — non-deterministic,
+> hash-keyed, written beside `index/`, never in the determinism digest, and degrading rather than
+> breaking when absent — is a candidate to be generalised for any future knowledge store. That
+> generalisation is proposed, not decided.
 
 ## The problem
 
@@ -23,8 +40,9 @@ Note the pipeline boundary: **`graph.json` (parser output) has NO group nodes** 
 graph. Groups exist only in `index/` (the `group` stage's output). Naming is therefore an `index/`
 concern, not a parser one.
 
-This is the still-open **Gap 12 / Fix 6** ("Group_Nodes carry no label or Region provenance") for the
-structural tier, and the deferred **embeddings-for-naming** roadmap item for the semantic tier.
+This was **Gap 12 / Fix 6** ("Group_Nodes carry no label or Region provenance") for the structural tier —
+**now closed**, see the status header — and the still-deferred **embeddings-for-naming** item for the
+semantic tier.
 
 ## The one rule: naming is strictly downstream of grouping
 
