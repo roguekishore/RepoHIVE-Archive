@@ -4,7 +4,7 @@
 > Rewrite sections in place; delete superseded text rather than annotating it. Keep this file short.
 > Why things are the way they are: `DECISIONS.md`. What happened when: `BRAIN.md`.
 
-Last updated: 2026-08-29 19:14
+Last updated: 2026-08-29 22:29
 
 ---
 
@@ -95,8 +95,10 @@ roughly equal warm, parse marginally ahead.
 consumer told "groups carry `regionId`" will look in the wrong file without this.
 
 Coverage: `vantage` 55/55, `broadleaf` 1670/1698 (the 28 being repository-wrapping levels, which correspond
-to no region by design), **`sample-java-project` 0/8 — its `index/` is stale and predates Gap 12.** Re-index
-before demoing the small fixture.
+to no region by design). **`sample-java-project` is current again** — verified 2026-08-29: all 8 group
+entries carry `regionId`/`ordinal`. A new untracked demo fixture exists: **`jsoup`** (95 files, 560 leaf
+edges, 8 regions, **preserve 3 / reconstruct 5**, `helper` at score 0.478 sitting 0.022 under the boundary
+— the ideal slider demo). Clone in `fixtures/jsoup-src/`, both git-ignored.
 
 **`metadata.json` carries more than previously recorded** (read 2026-08-29). Each `regionDecisions[]` entry
 has `regionId`, `action`, **`automaticAction`**, **`cohesion`**, **`coupling`**, `score`,
@@ -120,16 +122,21 @@ Full detail and the withdrawn alternative: `.kiro/workstreams.md` Path 2.
 
 ## Viewer surface reality
 
-Inventoried 2026-08-22 across all 51 `page.tsx` files against the 7 route handlers; endpoint mapping
-re-confirmed 2026-08-23. **3 real** (`knowledge-graph` = semantic zoom + blast-radius highlight,
-`flat-baseline`, `decision-audit`), **22 redirect** shells, **26 dead** vendored pages whose endpoints 404
-because `lib/api/client.ts` aims every vendored fetch at the app itself, where only the 7 handlers live.
+Rebuilt by Fable 2026-08-29 (first slice of `docs/viewer-handoff.md`). **4 real surfaces**: the landing
+page (server-rendered repo index reading real engine numbers from each `index/` on disk, absent fixtures
+shown honestly), **Structure map** (`/knowledge-graph` URL unchanged; decision now carried by the card
+frame — solid = preserved, dashed = reconstructed — plus wash and badge), **Decisions**
+(`/decision-audit`: draggable boundary strip with counterfactual flips over recorded scores, decision
+scatter with the boundary drawn exactly in normalised space, per-region provenance card showing the worked
+calculation, authored-vs-derived boundary morph, sortable audit table), and `flat-baseline`. New
+purpose-built components live in **`ui/src/repohive/`** (outside vendored folders, per NOTICE rule); new
+routes: `region-detail?region=…`, and `region-decisions` additionally serves displayName/fileCount/seed.
 
-This is deliberate and honest: `nav-items.ts` gates the sidebar per R9.1, `zoom-map-adapter.ts` emits
-neutral zeros rather than inventing metrics, and **no fabricated or fixture data reaches the running app**.
-**The vendored IA is not a backlog** — filling the 26 needs a git-history analyzer, coverage reader and
-security scanner. Note **blast radius has no URL and no nav entry**; it is an interaction inside the
-Knowledge Graph. Which vendored components *are* reusable: `.kiro/workstreams.md` Path 1.
+**19 of the 22 redirect shells are deleted** (only repo-root, `/c4`, `/zoom` remain — all landing on the
+real canvas); the two dead Knowledge-Graph controls (Structurizr export, Open-file-page link) are gone;
+`/api/repos` lists only repos whose index exists on this machine. The 26 dead vendored pages remain
+unreachable, not a backlog — filling them needs a git-history analyzer, coverage reader, security scanner.
+Blast radius stays an interaction inside the Structure map (no URL, no nav entry).
 
 ## Done
 
@@ -148,9 +155,11 @@ Knowledge Graph. Which vendored components *are* reusable: `.kiro/workstreams.md
 
 - **Viewer work handed to Fable** (2026-08-29). Brief: **`docs/viewer-handoff.md`** (363 lines), committed and
   pushed in `da882e3` — **but to this frozen archive repo, not the public one where development now happens**
-  (see risks). Covers running it, the verified shape of all five `index/` files, 12 zero-change surfaces, the one
-  additive field, what not to attempt, and **§ 10 total design authority** — everything visual is Fable's, canvas
-  and layout included, to an Awwwards bar. §§ 2–7 are an inventory, not a spec. Nothing in it is implemented.
+  (see risks). **First slice implemented same day on `fable-work-new`** (see Viewer surface reality): honest
+  landing, Decisions surface (strip + scatter + provenance + morph + table), canvas decision frames, shell
+  cull, dead controls dropped. Still open from the brief: DSM / heatmap / coupling-ring reuse surfaces, the
+  per-leaf size engine field (treemaps), partition-disagreement metric, determinism panel, and a full visual
+  identity pass to the Awwwards bar.
 - **Everything else is on hold** mid-planning, by owner instruction: CLI, foundation seams, MCP, hosted. All
   recorded decisions stand; no work is in flight.
 - **CLI spec remains unblocked whenever it resumes** (2026-08-23): command surface and names final
@@ -174,8 +183,8 @@ parallelism map are in **`.kiro/workstreams.md`**; titles only here so the two c
 - [ ] **Hosted deployment** — needs all four foundation seams.
 - [ ] **More real-repo validation** — collides with nothing; the only candidate that could surface a real
       problem, and the cheapest thing that strengthens the paper.
-- [ ] **Credibility pass** — re-index the stale `sample-java-project` fixture, fix the landing page zeros,
-      drop the two dead controls on the Knowledge Graph page.
+- [x] **Credibility pass** — done 2026-08-29: landing zeros replaced with real index reads, both dead
+      Knowledge-Graph controls dropped, `sample-java-project` verified current (no re-index needed).
 
 **De-conflict before anyone writes orchestration code:** both the CLI and the hosted path need a parse→group
 layer, so define the orchestration package's *interface* first (one file of type signatures) and have both
@@ -213,10 +222,9 @@ incomplete on 2026-08-23.
   or raising a coefficient pushes regions toward preserve with no repository changing. Recorded instance:
   `vantage` went 0/20 → 10/10 preserve when edges went 128 → 341 in wave A. Calibration rests on two real
   fixtures, which is the argument for real-repo validation early.
-- **The viewer's landing page reads as measured when it is not.** `web/src/app/page.tsx` swallows failed
-  fetches via `Promise.allSettled` and renders `Total Pages 0` / `Fresh Pages 0` / `Stale Pages 0` in metric
-  cards. Nothing is fabricated, but zeros in a metric card read as a measurement, and it is the first screen
-  in any demo. Two dead controls also sit on the one real page.
+- **Resolved 2026-08-29: the landing page zeros and the two dead controls.** The landing now reads real
+  numbers from each `index/` server-side and shows absent fixtures as absent; the Structurizr export and
+  Open-file-page link are deleted. Kept one release so the fix is not re-reported as a defect.
 - **The code-graph-MCP space is crowded**, so an MCP server is distribution, not differentiation. Survey in
   the 2026-08-22 CLI-before-MCP entry in `DECISIONS.md`.
 - **Command names** `parse` / `group` / `view` are still placeholders.

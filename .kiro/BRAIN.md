@@ -1726,3 +1726,41 @@ No code changed in this session's tail — documentation + state only. Wave B re
   directory. No cross-repo copy made — the owner has not asked for one.
 - **Next:** owner decides where the brief lives and whether to commit it. Held workstreams resume only on an
   explicit call.
+
+## 2026-08-29 22:29 — Viewer handoff, first implementation slice (Fable)
+
+- **Scope executed from `docs/viewer-handoff.md`** on branch `fable-work-new`, 9 commits, each built and
+  tested before committing. Order: honest landing + jsoup registry → dead KG controls dropped →
+  `ui/src/repohive/` component namespace → region-detail adapter/route + Decisions page rebuild → canvas
+  decision frames → 19-shell cull → titles/naming → gitignore.
+- **The flagship surface is Decisions** (`/decision-audit`, URL kept). Composition top-to-bottom: config
+  `<dl>` (boundary, weights, squash k, seed, region count) · boundary strip with the recorded boundary as a
+  draggable line (a real `<input type=range>` under a drawn SVG layer; counterfactual flips computed from
+  recorded scores only, overridden regions pinned; the honest limit — "regrouping is not recomputed" —
+  stated in situ per the brief) · decision scatter in normalised space (squashed cohesion × independence),
+  where the decision rule is exactly a straight line; shape+colour dual encoding (filled circle = preserve,
+  hollow diamond = reconstruct) so the distinction is never colour-only · provenance card rendering recorded
+  values exactly (`String(v)`) with derived rows marked ≈ and a called-out mismatch when the degenerate rule
+  fired · the **authored-vs-derived region morph** (same file tiles, package hull vs recorded group cells,
+  deterministic pure layout, rAF tween honouring prefers-reduced-motion, cross-cluster edges tinted) ·
+  sortable audit table on vendored `ResponsiveTable`. Selection and boundary live in the URL via nuqs.
+- **Data honesty held everywhere**: the only client arithmetic is the engine's own recorded formula
+  (verified in tests against recorded jsoup scores to 12 decimals) and the sanctioned boundary comparison;
+  the region-detail adapter joins by `regionId`/`ordinal` (Gap 12), lifts recorded leaf edges to files, and
+  reports its deterministic size cap instead of hiding it.
+- **jsoup indexed as the demo fixture** (per FABLE_HANDOFF §8): 95 files, 8 regions, preserve 3 /
+  reconstruct 5, `helper` at 0.478 — 0.022 under the boundary, the perfect slider story. Untracked,
+  git-ignored (`fixtures/jsoup`, `fixtures/jsoup-src`).
+- **Verified in the running app** (dev server, jsoup): landing shows real numbers with vantage/broadleaf
+  honestly absent; counterfactual boundary 0.45 flips exactly `helper`; provenance recomputation matches the
+  recorded score; morph renders 1 authored hull → 7 clusters, 15/15 tiles; zoom-map carries 37 decided
+  groups; flat baseline 200.
+- **Test reality**: web 27/27 green (route-links guard now pins the surviving stub set `{c4, zoom}`;
+  breadcrumb test updated to the new Structure-map label — deliberate renames, not weakenings). ui: 13 new
+  model tests green; the 37 pre-existing failures in vendored c4/docs-tree/theme suites are unchanged
+  (verified identical with the changes stashed). ui `gates` script fails on two **pre-existing** vendored
+  hits (`refactoring/plan-before.tsx` hex-in-comment, `plan-rows.tsx` HTML-entity false positive) — not
+  introduced here, not fixed here.
+- **Still open from the brief**: DSM/heatmap/coupling-ring reuse surfaces, per-leaf size engine field
+  (unlocks treemaps), partition-disagreement metric, determinism panel, and the full visual-identity pass —
+  the current work is craft-clean but the Awwwards-bar identity (§10) is genuinely not yet attempted.
