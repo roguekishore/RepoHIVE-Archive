@@ -1366,3 +1366,363 @@ No code changed in this session's tail — documentation + state only. Wave B re
 - **Next:** owner chooses between the CLI requirements spec and the orchestration signature. Recommended the
   signature first — it is a couple of hours and it is the only thing that must precede parallel worktrees
   touching orchestration.
+
+---
+
+## 2026-08-24 01:09 — Verified the public repo is clean; replay half done
+
+- **What:** owner asked whether the replay had progressed and whether the academic paper had leaked.
+  Audited the public repo rather than trusting notes.
+- **Progress found:** day 1 replayed on **Aug 21** (13 `feat/parser-identity` commits + merge), day 2 on
+  **Aug 22** (8 `feat/viewer` commits + merge). Public `main` at **98** commits, tip
+  `merge: viewer implementation`, all seven refs in sync with origin. Aug 23 empty. Batches 91–126 remain
+  — segment 3, 36 commits over two days.
+- **The paper is omitted. Confirmed three ways:**
+  1. No paper artefact ever existed in public history — no `docs/`, `.kiro/`, `AGENTS.md`, or
+     `FABLE_HANDOFF.md`. Root holds only the nine legitimate files. The two "paper" matches are
+     `packages/ui/src/zoom/paper.ts` and `kg-card-paper.jpg`, vendored UI surface assets.
+  2. **All 98 commits on origin have zero-length bodies.** `03-replay-batch.ps1` commits with
+     `-m "$subj"`, so it carries the subject and discards every body. This was accidental protection, not
+     designed: the archive's viewer commits have long bodies full of `R9.3`, `R11.6`, `Phase A/B/C`, and
+     one body describes the IEEE column width and figure house style outright. None of it can reach the
+     public repo through this script.
+  3. Message scan scoped to origin returns exactly **one** hit: `test(core): update fixture edge count
+     after Wave A re-parse`, batch 69, the leak accepted on 2026-08-22.
+- **A false alarm worth recording so it is not re-raised:** scanning with `git log --all` reports 12 leaks,
+  including `chore: remove academic reference` and the figure-prompt body. Those live on
+  `remotes/staging/*` — the filtered staging mirror fetched into the local public clone. Local only, never
+  pushed. **Always scope public-repo audits to `--remotes=origin`; `--all` includes the staging mirror.**
+- **Outcome:** `batches.txt` holds 126 entries and entries 91–126 are exactly segment 3, with
+  `FABLE_HANDOFF`, `chore: remove academic reference` and the figure-prompts subject all correctly absent.
+  Gave the owner the day-3 command dated 2026-08-23 (no `-Merge`; the merge belongs to day 4) and the
+  day-4 command dated 2026-08-24. No code changed, so no engine gates apply.
+- **Next:** owner runs day 3 and day 4; public `main` should finish at 135. Aug 23's squares stay blank
+  until the day-4 merge, so the two should not be spread far apart.
+
+## 2026-08-24 01:09 — The recorded pipeline timings were wrong by up to 9x; the owner was right
+
+- **What:** The owner said parse used to run "in 10s of time" and suspected a downstream regression had slowed
+  it, asking me to check `main`. I measured instead of reasoning. **There is no regression — the recorded
+  numbers were simply wrong**, by up to 9x, and they had been driving architectural conclusions for two days.
+- **Measured 2026-08-24, three runs each, same machine and fixtures:**
+
+  | Stage | Recorded 2026-08-22 | Measured now | Error |
+  |-------|--------------------:|-------------:|------:|
+  | `parse` broadleaf (2985 files) | 68.3 s | 8.2 / 6.9 / 7.6 s | ~9x high |
+  | `group` broadleaf | 11.3 s | 9.0 / 6.7 / 6.5 s | ~1.7x high |
+  | `parse` vantage (158 files) | 4.7 s | 3.5 / 1.2 s | ~2–4x high |
+  | pipeline broadleaf | ~80 s | **~14 s** | ~5.7x high |
+
+- **Output identical, so it is a measurement defect not a code regression:** 29,190 nodes (2985 file / 3595
+  class / 22,610 function), 14,325 edges, 502 regions, preserve 38 / reconstruct 464 — matching the recorded
+  values exactly, and stable across all three `group` runs (incidental determinism evidence).
+- **How I got there.** First checked whether any *earlier* timing existed to compare against: none — 2026-08-22
+  was the first-ever measurement, so the owner's "10s" was memory against no baseline. Then tested the cheap
+  hypothesis before the expensive one: counted files per fixture and computed implied per-file cost. vantage
+  29.7 ms/file vs broadleaf 22.9 ms/file — near-identical, i.e. **linear scaling with no regression
+  signature**, which said the fixture was just 19x bigger. Cross-checked the denominator against `graph.json`
+  (2985 `file` nodes = 2985 `.java` on disk, nothing excluded). Only then re-measured, and the re-measurement
+  showed the *recorded* figure was the problem rather than the ratio.
+- **Leading cause: cold filesystem cache on first-ever runs.** In every three-run set today run 1 was slowest
+  (8.2 vs 6.9/7.6 · 9.0 vs 6.7/6.5 · 3.5 vs 1.2), and the error scales with file count — broadleaf ~9x off,
+  vantage ~2–4x. The 2026-08-22 runs were first-ever against freshly cloned fixtures. Recorded as the leading
+  explanation, **not as established fact**, since it cannot be proven retroactively.
+- **What I got wrong, plainly.** I corrected the owner **twice** — once on the sweep passage, once on "roughly
+  20 seconds" — firmly, citing a measured number, and put "do not quote 20 s" into `DECISIONS.md` as a
+  constraint. **Their ~20 s was right; the true figure is ~14 s.** The failure was not the arithmetic, it was
+  treating a single recorded run as authoritative because it was written down as "measured", and correcting a
+  human's direct experience with it. Recorded measurements deserve the same scepticism as recorded prose — the
+  five steering-drift findings should have already taught me that, and did not.
+- **Downstream conclusions corrected, six of them:** "parse dominates group 6:1" is **false** (they are roughly
+  equal, parse marginally ahead) and so is the claim that parse is where parallelism would pay · the "~1.5 s
+  npm + WASM startup" figure is overstated (a warm vantage parse is 1.2 s *total*) · the sweep saving is
+  ~2.4 min not ~21 min, so **the stages are now kept on Req 4.4 and debugging value rather than on speed** ·
+  the MCP read-only-v1 argument is **weakened** — 14 s is borderline for a tool call rather than
+  disqualifying, so an `index` tool is more plausible than recorded, and the recommendation now rests on scope
+  · one of my three arguments against Lambda-first (an 80 s held SSE connection) is **materially weaker** at
+  14 s and flagged as such, while the other two stand · the live-indexing decision is **strengthened** — its
+  premise number was wrong but "watchable, so no queue needed" holds better at 14 s than at 80 s.
+- **Not done, and offered:** the `main` vs `fable-work` parse comparison the owner asked for. The premise it
+  would test is disproven, since HEAD parses 2985 files in ~7.6 s; a comparison would only quantify wave A's
+  incremental extraction cost, which is academic now. Said so rather than doing it silently or pretending it
+  was unnecessary.
+- **Incidental discovery:** the working tree was clean when I expected six modified files. The owner had
+  committed the session's memory work as `a15ec83 chore: add workstreams` and pushed it to `origin/fable-work`.
+  Nothing lost; `.kiro/` is still tracked. Worth noting because I briefly suspected `.kiro` had become ignored.
+- **Process rule added to `DECISIONS.md`:** never record a first-ever run as a representative timing; measure
+  three and report the range or median.
+- **Honesty notes:** no code changed — only markdown — so no gates apply. `.tmp-perf/` scratch directory
+  created for the measurements was deleted, and the fixture artifacts were never touched (all runs wrote to
+  explicit temp paths). Date rolled over to 2026-08-24 mid-session; timestamp taken fresh rather than reused.
+- **Next:** unchanged — confirm lockstep versioning, then the orchestration signature, then the CLI
+  requirements spec. The corrected timings make the hosted path easier than planned, not harder.
+
+## 2026-08-24 01:21 — Root-caused the bad timings by experiment: ~15 ms/file first-access penalty
+
+- **What:** Owner asked why parse was slower in the first place. The earlier entry today had recorded cold
+  cache as an unproven hypothesis; this turn tested it and closed the question with a reproducible experiment.
+- **Why it needed an experiment:** I went looking for the method behind the 2026-08-22 measurement and **found
+  no `BRAIN` entry for it at all.** The figures reached `PROJECT_STATE` and the live-indexing `DECISIONS` entry,
+  but no session record described how they were taken, so the conditions were unrecoverable from the record and
+  had to be reconstructed. That is the concrete cost of a skipped memory update, and it is now a constraint:
+  any figure reaching `PROJECT_STATE` or `DECISIONS` must have a `BRAIN` entry stating how it was obtained.
+- **Ruled out first, cheaply.** The file set was identical then and now — 2985 `.java` on disk, 2985 `file`
+  nodes, 29,190 total nodes matching the recorded value exactly — so "the fixture had generated sources that
+  were later cleaned" is disproven by the matching node count. Then measured the I/O floor: reading all 2985
+  files warm is **0.33 s** for 13.4 MB, i.e. 4% of a warm parse. That killed plain cache-miss as a sufficient
+  explanation, since it would need a ~180x I/O penalty.
+- **The experiment.** Copied the same 2985 files to a fresh path (robocopy, structure preserved) and parsed the
+  copy three times. Same content, same output (29,190 nodes) each run: **51.0 s → 6.6 s → 6.2 s.** The only
+  variable is whether the files had ever been accessed. That reproduces the 2026-08-22 anomaly on demand.
+- **The mechanism:** 44.6 s extra over 2985 files = **14.9 ms/file** on first access. An SSD page-cache miss on
+  a 4.6 KB file is well under 1 ms, so cache alone cannot do it. Verified Defender **real-time and on-access
+  protection are both enabled** on this machine; on-access scanning of newly-created files at 10–30 ms each
+  matches the magnitude, and Defender caching its verdict per file explains why run 2 onward are fast.
+  The residual 51 s vs 68.3 s gap is plausibly the concurrent replay work the BRAIN timeline shows running
+  between 20:55 and 23:38 that evening.
+- **Attribution limit, recorded rather than glossed:** the first-access penalty is proven and measured;
+  Defender *specifically* is the leading explanation, not a demonstrated one. Isolating it needs an antivirus
+  exclusion, which requires admin rights and modifies a security setting — deliberately not done unprompted.
+- **Three product consequences, now constraints in `DECISIONS.md`:**
+  1. **Always quote two numbers.** `parse` broadleaf is ~50 s cold / ~6–8 s warm; pipeline ~14 s warm. Either
+     alone is misleading.
+  2. **A user's first run is cold** — someone clones then immediately indexes — so a Windows first index of a
+     broadleaf-sized repo is ~50 s. No warm figure may go in a README or claim unlabelled.
+  3. **The hosted path probably escapes it** (Linux hosts typically run no on-access scanner) **but that is an
+     assumption**; it must be measured on the actual instance. The 51 s is a Windows-developer artifact, not a
+     property of the pipeline.
+- **Also settled: the parser needs no optimization.** ~6.2 s for 2985 files is ~2 ms/file of real work. Future
+  performance effort should follow measurements, not a cold run.
+- **Vindication for the owner, twice over.** Their "10s" memory was warm-run accurate, their ~20 s pipeline
+  estimate was close to the true ~14 s, and their instinct that "it used to run quick" was correct — what was
+  wrong was my treating a written-down number as authoritative over their direct experience. Their follow-up
+  question ("why was it slower in the first place?") is what produced the root cause; I had been content with
+  an untested hypothesis.
+- **Honesty notes:** no code changed — markdown only — so no gates apply. Scratch dirs `.tmp-perf/` and
+  `.tmp-perf2/` both deleted and verified gone; all parse/group runs wrote to explicit temp paths, so the
+  fixture `graph.json` and `index/` were never touched. Working tree carries only the four memory files.
+- **Next:** unchanged — confirm lockstep versioning, define the orchestration signature, then the CLI
+  requirements spec. Add a cold-vs-warm measurement on the target Linux instance to the hosted-path plan.
+
+## 2026-08-27 17:57 — Cold-start penalty probed: per-file read latency, parallelizes 6.8x
+
+- **What:** Owner said ~50 s still felt too long and asked for workarounds, analysis only. Probed the cold path
+  to find *what* was serialized before proposing anything, then recorded six ranked options. **Nothing
+  implemented**, as instructed.
+- **Why probe rather than propose from theory:** the right workaround depends entirely on whether the cost is
+  throughput or latency, and on whether the directory walk shares the blame. Guessing would have produced
+  plausible advice with no way to rank it.
+- **The probe.** Three fresh copies of the same 2985 broadleaf `.java` files, so every read was genuinely cold,
+  with the walk timed separately from the reads:
+
+  | Mode | Walk | Read | Per file |
+  |------|-----:|-----:|---------:|
+  | cold, sequential | 0.33 s | 59.06 s | 19.79 ms |
+  | cold, concurrent ×16 | 0.32 s | 8.64 s | 2.90 ms |
+  | cold, concurrent ×64 | 0.42 s | 8.95 s | 3.00 ms |
+  | warm, sequential | 0.46 s | 0.87 s | 0.29 ms |
+  | warm, concurrent ×16 | 0.36 s | 0.15 s | 0.05 ms |
+
+- **Four findings:** the **directory walk is innocent** (0.33 s cold = warm, so `source-collector` needs no
+  work) · the entire penalty is **per-file read latency**, 59 s serialized across 2985 sequential reads ·
+  **concurrency ×16 gives 6.8x** because the cost is *waiting* and waiting parallelizes · **×64 saturates**
+  (8.95 s), so ~16 is the setting. Projected cold `parse` **~51 s → ~15 s**, warm unchanged at ~7 s — the
+  optimization helps only the case that needs it.
+- **Probe defect disclosed rather than hidden:** the throwaway script's byte counter raced across async workers
+  (`bytes +=` is not atomic across `await`), so concurrent runs under-report chars — visible in the output I
+  quoted. Timing is unaffected; all 2985 reads completed. Said so in the answer and in `DECISIONS.md` because
+  the numbers look wrong otherwise.
+- **The design constraint that matters more than the concurrency.** Recorded as binding: any prefetch must be
+  **"concurrent fetch, then sequential extraction in canonical order"** — read into memory, then run the
+  existing loop unchanged from the map. Only *when* bytes are fetched changes, so byte-identical output is
+  structurally guaranteed instead of hoped for. Any design that lets read-completion order reach the graph is
+  forbidden outright, since determinism is a hard constraint.
+- **Surfaced a live seam decision.** Parsing from the archive stream without extracting **eliminates** the
+  penalty rather than mitigating it: no new files on disk, one sequential read replacing 2985 opens. That makes
+  extract-then-walk vs stream-from-archive an input to the source-provider seam spec, which had not previously
+  been framed as a choice.
+- **Refused a workaround that works.** An antivirus exclusion fixes the number and is fine for the maintainer's
+  own `fixtures/`, but it must never be user-facing guidance: the CLI's purpose is indexing repositories a user
+  just cloned from the internet, which is the one directory most warranting a scanner. Recorded as a
+  constraint so a later session does not helpfully add it to the README.
+- **Also recorded so planned work is not mistaken for a fix:** content-hash caching and snapshot ids help
+  re-indexing and do nothing for the *first* index, which is the cold case. And the workaround is robust to the
+  unresolved attribution — Defender was never isolated, but parallelizing per-file latency helps whatever
+  causes it.
+- **Honesty notes:** no product code changed — the probe was a throwaway `.tmp-probe/probe.mjs` plus three
+  fixture copies, all deleted and verified gone. Fixture `graph.json` and `index/` untouched. No gates apply.
+  The "Linux is probably unaffected" claim remains **unmeasured** and is still labelled an assumption.
+- **Next:** unchanged and unblocked — confirm lockstep versioning, define the orchestration signature, then the
+  CLI requirements spec. Two additions to carry into the seam spec: the stream-from-archive choice, and a
+  cold-vs-warm measurement on the target Linux instance.
+
+## 2026-08-27 18:09 — Prefetch injection point pinned to the code; warm parse is ~85% CPU
+
+- **What:** Owner asked where the concurrency setting would live, whether ×16 travels across machines, what
+  "warm" meant in the probe table, and whether warm reads are sub-second. Read the actual call sites rather than
+  answering from memory, then recorded the two genuinely new specifics. Still **nothing implemented**.
+- **Owner independently reproduced the split** — >40 s cold, <7 s warm — agreeing with the measured
+  51 s / 6.2–6.6 s. Two independent measurements now agree, which is more than the original 2026-08-22 figure
+  ever had. The 40 s vs 51 s spread is expected variance in first-access scan cost.
+- **Injection point pinned, and it is cleaner than assumed.** `AstExtractor.extract` is **explicitly
+  synchronous** (its docstring says so) and `AstExtractorDeps.readFile(path): string` returns a string, so
+  `readFile` cannot become async without breaking the interface — **and it does not need to.** The prefetch is a
+  new orchestrator step between collect and extract that fills a `Map<absolutePath, string>` concurrently, after
+  which the extractor is built with `readFile: (p) => map.get(p)`. The interface, `extract()`, the extraction
+  loop and the processing order are all untouched; the loop still walks `files` in canonical order and merely
+  finds the bytes already in memory. That is what makes the determinism guarantee structural rather than a
+  thing to be tested for.
+- **Two design recommendations recorded, neither previously stated:**
+  1. **The concurrency value goes in `ParseOptions`** (optional, beside `excludedSegments?`) and **should not be
+     a CLI flag initially** — every published flag is a permanent contract, and this is a workaround for an
+     environment quirk rather than a domain choice a user can reason about. Additive later, unremovable once
+     shipped.
+  2. **Do not derive the default from CPU count.** The bottleneck is I/O latency, not compute, so core count is
+     the wrong predictor; a fixed 16 beats `os.cpus().length`.
+- **New bound that caps expectations: a warm parse is ~85% CPU.** Warm reads are 0.87 s of a ~6.4 s warm parse.
+  So the prefetch fixes the cold path and can do essentially nothing for the warm one — cold ~51 s → ~15 s,
+  warm stays ~6 s. Recorded in `PROJECT_STATE` because it is the optimization ceiling, and it is the honest
+  answer to any future "can we make parse faster" question.
+- **Answered the cross-machine question with the asymmetry rather than a yes/no.** The *penalty magnitude* varies
+  a lot (AV product and settings, OS, disk; Linux likely near-zero). What is consistent is the *effect* of
+  concurrency, because the curve is flat past the knee: overshooting 4x cost 3.6%, undershooting cost 580%. So
+  pick a value comfortably past the knee and stop tuning. On a machine with no penalty it still never hurts.
+- **No `DECISIONS` entry:** nothing was decided. The prefetch design constraint was already recorded on
+  2026-08-27; this turn refined *where* it attaches and added two recommendations, both of which belong in the
+  register as proposals rather than in `DECISIONS` as choices.
+- **Honesty notes:** no code changed, only markdown, so no gates apply. No new measurements were taken this
+  turn — every figure quoted is from the 2026-08-27 probe already recorded, plus the owner's own run.
+- **Next:** unchanged — confirm lockstep versioning, define the orchestration signature, then the CLI
+  requirements spec. The seam spec carries two extra inputs: the stream-from-archive choice, and a cold-vs-warm
+  measurement on the target Linux instance.
+
+---
+
+## 2026-08-28 17:34 — Hand-off brief for carrying private knowledge into the public repo
+
+- **What:** owner stated that development now moves to the public `RepoHIVE` and this repo becomes a
+  frozen archive, that `.kiro/` will be gitignored there, and that the workflow moves to Claude Code.
+  That raises a concrete blocker — a fresh clone on their second machine has no memory, conventions or
+  decision history. Worked through the options and wrote
+  `docs/plan/private-knowledge-repo-plan.md`, a self-contained brief for an implementing agent.
+- **The finding that drives the whole design:** Claude Code's Read tool takes an explicit path and
+  ignores gitignore, but **Grep and Glob are ripgrep-backed and ripgrep honours `.gitignore`**. Once
+  `.kiro/` is ignored in the public repo it is invisible to search, so an agent can never discover it —
+  and the failure is silent, looking exactly like an agent that chose not to consult its knowledge.
+  Everything therefore hangs off deterministic `@` imports in a tracked root `CLAUDE.md`, not
+  discovery.
+- **Approach documented:** a separate **private** repo holding today's `.kiro/`, cloned *into* the
+  public checkout at `.kiro/` itself. Mount point matters: every existing path reference in
+  DECISIONS/steering/PROJECT_STATE/BRAIN already says `.kiro/`, so any other location turns all of them
+  into dangling references. Also keeps Kiro working if reopened, and keeps it to one ignored path — git
+  never descends into an ignored directory, so a nested `.git` there is safe. Bootstrap is two clones.
+  Rejected a submodule: `.gitmodules` is tracked, so the private repo's URL would be published, and
+  commit pinning would add pointer-bump noise to the public history.
+- **Measured, so the split is not guesswork:** steering is 490 lines across five files;
+  `PROJECT_STATE.md` 220; `DECISIONS.md` 873; `workstreams.md` 894; `BRAIN.md` 1,597; and the three
+  registers `gaps`/`fixes`/`edge-case-audit` are 1,754 + 2,535 + 1,942 lines, **~509 KB combined**.
+  Import set lands at ~710 lines per session; the registers would exhaust the context window. This maps
+  one-to-one onto the read-when classification `steering/memory.md` already defines.
+- **Verified rather than assumed:** `.kiro/` is genuinely **absent** from the public repo's
+  `.gitignore` today. Steering has **no** `inclusion: fileMatch` frontmatter and **no** `#[[file:]]`
+  references, so content ports as plain markdown. Machinery does not: inventoried
+  `hooks/sync-memory-on-stop.json`, three `agents/`, four `skills/`, `settings/mcp.json` and four
+  `specs/` for the port table.
+- **Carried the two-prior-losses lesson in explicitly.** The 2026-08-08 entry below records the
+  Aug-05 decisions being written and lost **twice** to uncommitted branch operations. Two repos makes
+  that easier to repeat, so the brief tasks the hook with auto-**committing** `.kiro/` — local only,
+  since `conventions.md` makes pushes owner-driven.
+- **Not done:** nothing executed. No code changed, so no engine gates apply. Flagged two items as
+  needing explicit owner approval rather than folding them in — publishing `steering/` while keeping
+  memory private, and the mount-point mechanism itself.
+- **Next:** owner ratifies or amends the brief. `PROJECT_STATE.md` should be trimmed toward its own
+  150-line budget first, since it becomes the one file imported into every Claude Code session.
+
+## 2026-08-29 19:09 — Viewer handed to Fable; brief written, but into the frozen repo
+
+- **What:** Owner halted all workstreams to hand the viewer to Fable, then asked that the brief also clear
+  Fable to build **new** components rather than only reuse vendored ones. Read the real `index/` artifacts to
+  ground the brief in verified field shapes, wrote `docs/viewer-handoff.md` (283 lines), then appended a
+  new-components section.
+- **What the brief covers:** how to run it · the verified shape of all five `index/` files with real field
+  names and value ranges · 12 surfaces buildable with **zero** engine change · the one additive field (per-leaf
+  LOC/bytes) that unlocks the three treemaps · what not to attempt and why · where adapters, handlers, pages
+  and nav entries go · the six non-negotiable constraints · and a section clearing new-component work.
+- **Two findings from reading the fixtures that were not previously recorded:**
+  1. **`regionId` and `ordinal` live in `nodes.json`, not `hierarchy.json`.** Verified on vantage: **0 of 55**
+     group nodes in `hierarchy.json` carry them; **all 55** entries in `nodes.json` do. `PROJECT_STATE` had
+     said "every group node carries `regionId`" without naming the file, which would send a newcomer to the
+     obvious wrong place and let them conclude the provenance does not exist. Sharpened in `PROJECT_STATE`,
+     and called out as a named trap in the brief.
+  2. **`metadata.json` is richer than recorded.** Each `regionDecisions[]` entry carries **`cohesion`**,
+     **`coupling`** and **`automaticAction`** alongside the known fields, and the top level has `perLevel[]`,
+     `configuration` and `metricWeights`. Per-region cohesion and coupling make a **decision scatter** (every
+     region plotted against the 0.5 boundary that decided it) buildable with no engine change — the project's
+     contribution in one chart, which the viewer has nothing like today. And `score` + boundary make a
+     **client-side boundary-sensitivity slider** pure arithmetic.
+- **Recorded an honest limit on that slider** rather than letting it be discovered later: a counterfactual
+  boundary can show *which regions would flip*, but not the resulting hierarchy, because a reconstructed
+  region's groups need community detection to actually run. In the brief as a blockquote and in `DECISIONS`
+  as a constraint.
+- **Namespace rule added:** new components go in `packages/ui/src/repohive/` or
+  `packages/web/src/components/<surface>/`, never inside vendored folders — mixing them muddles what came from
+  upstream, which matters for `NOTICE` attribution.
+- **Problem I created and did not solve.** I wrote the brief to `docs/viewer-handoff.md` in **this repo, which
+  the 2026-08-28 entry froze as the archive.** Development moved to `D:\PROJECTS\repohive-public` (verified: it
+  exists, is on `main`, carries the engine history — and has **no `docs/` directory**). So the brief sits where
+  Fable will not be working, and it is untracked here besides. I did **not** copy it across: that is a
+  cross-repo write into a repo I had not been asked to touch, and the destination structure does not exist yet.
+  Flagged for the owner in `DECISIONS` and in the reply. **Root cause on my side: I did not re-read
+  `DECISIONS.md` at the top of the turn**, so I acted on a two-day-old picture of where work belongs.
+- **Also stale-fixed while in `PROJECT_STATE`:** a line I had written on 2026-08-23 still asked "whether an
+  academic deadline is in play, asked across two sessions and still unanswered" — contradicted by a paragraph
+  higher in the same file that records the deadline as live. Removed. Second time a duplicate assertion in that
+  file has drifted.
+- **Honesty notes:** no code changed, so no gates apply. `PROJECT_STATE` is now **246 lines**, up from 220, and
+  the 2026-08-28 entry explicitly flags that ceiling as newly expensive because Claude Code pays the import
+  budget every session. **My edits made a known problem worse** — the trim is now overdue and I am recording
+  that rather than leaving it implicit. Nothing in the brief is implemented.
+- **Next:** owner decides where the brief lives (move to the public repo, or keep here and hand it over out of
+  band), and whether to commit it. Held workstreams resume only on an explicit call; first items then are
+  lockstep versioning and the orchestration signature.
+
+## 2026-08-29 19:14 — Total design authority granted to Fable; brief reframed as inventory, not spec
+
+- **What:** Owner asked that the brief state explicitly that every component and design is changeable — graph
+  viewer, node design, edge design, everything — and that Fable work as a senior designer targeting an
+  Awwwards-worthy site. Appended § 10 "Design authority" to `docs/viewer-handoff.md` and rewrote the document
+  header. Brief is now 363 lines.
+- **Why it needed to be forceful:** a brief that hedges on latitude reads as "do not touch much." The previous
+  wording granted new-*component* latitude but left the existing canvas, node/edge design, layout and the three
+  real surfaces implicitly off-limits. § 10 states that rewriting the canvas from scratch is permitted, and that
+  nothing vendored is a design decision — those components were a shortcut to get data on screen and carry
+  another product's aesthetic.
+- **Reframed the document, not just appended to it.** Added a "Read § 10 first" callout at the top, because the
+  most important framing was the last section and would likely have been reached last or not at all. Sections
+  2–7 are now explicitly labelled **an inventory of what the data supports, not a specification of what to
+  build**, with § 8 and § 10 holding the only real constraints. That inversion matters more than the new
+  section's content.
+- **Kept four constraints, deliberately framed as correctness and legal rather than aesthetic** so they do not
+  read as design interference: no displaying numbers the engine did not record · deterministic layout (any
+  algorithm, provided it is seeded and stable — the reason is reproducible screenshots and paper figures, plus
+  not undercutting the engine's determinism claim) · accessibility as part of the bar rather than a tax, with
+  **preserve/reconstruct explicitly not colour-only** since Awwwards evaluates usability · `NOTICE` attribution
+  accurate for whatever vendored code survives.
+- **Gave six product-specific design openings** rather than only "go be creative": the preserve/reconstruct
+  distinction needing its own visual language (noted that two colours and a badge is the obvious answer and
+  probably not the best, and that this identity is currently unexpressed) · density as the real problem, since
+  anything good at 20 nodes and broken at 3000 is not a solution · the boundary morph as the signature
+  animation · the slider as an interactive centrepiece · progressive disclosure over stat grids · and the
+  empty/loading/error/truncated states, where the current viewer is weakest.
+- **Recorded a guard against future re-narrowing:** if a later session finds the brief's suggestions being
+  ignored, that is intended behaviour, not drift. Without that, the next agent to read the component tables may
+  try to enforce them.
+- **Honesty notes:** no code changed, only markdown, so no gates apply. `PROJECT_STATE` held at **246 lines** —
+  the handoff bullet was rewritten in place at the same length rather than extended, since the 2026-08-28 entry
+  flags that file's size as newly expensive under Claude Code's per-session import budget. The trim remains
+  overdue and is still not done.
+- **Still unresolved, second turn running:** the brief lives at `docs/viewer-handoff.md` in **this frozen
+  archive repo**, untracked, while development moved to `D:\PROJECTS\repohive-public`, which has no `docs/`
+  directory. No cross-repo copy made — the owner has not asked for one.
+- **Next:** owner decides where the brief lives and whether to commit it. Held workstreams resume only on an
+  explicit call.

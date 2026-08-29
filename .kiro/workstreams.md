@@ -378,26 +378,32 @@ repohive describe <dir>        # recommended addition: counts, decisions, engine
 repohive --version | --help
 ```
 
-### Why `group` stays separately invokable — and what a "sweep" is
+### Why `group` stays separately invokable
 
-Restated twice because it was misread twice. **A sweep is not indexing.** It is a research procedure that only
-the project itself runs, required by algorithm spec **Req 4.4**: show how the preserve/reconstruct split
-responds as `--boundary` varies. That means running `group` ~20 times at 20 boundary values. **The source code
-never changes across those runs, so `graph.json` never changes either.**
+> **Rewritten 2026-08-24 after the timings it rested on were found wrong by up to 9x.** Two earlier versions of
+> this passage argued from `parse` 68.3 s / `group` 11.3 s and claimed a ~21-minute sweep saving. Both figures
+> were bad (see `DECISIONS.md`), and **the owner's ~20 s estimate for a full run was closer to the truth than my
+> correction of it.** The conclusion survives; the arithmetic that supported it does not.
 
-Measured on broadleaf (2026-08-22): `parse` **68.3 s**, `group` **11.3 s**.
+**A sweep is not indexing.** It is a research procedure only the project runs, required by algorithm spec
+**Req 4.4**: show how the preserve/reconstruct split responds as `--boundary` varies, which means running
+`group` ~20 times at 20 boundary values. **The source never changes across those runs, so `graph.json` never
+changes either.**
+
+Measured 2026-08-24 on broadleaf, three runs, **warm**: `parse` ~**7.6 s**, `group` ~**6.7 s**, pipeline
+~**14 s**. Cold (first access to freshly-written files) `parse` is ~**50 s** — see the cold/warm note in
+Path 4, which applies to every figure in this section.
 
 | Scenario | What runs | Cost |
 |----------|-----------|------|
-| A user indexing once | parse + group | **~80 s.** Users never sweep |
-| Sweep, `parse` and `group` separate | parse ×1, group ×20 | 68 + (20 × 11) ≈ **5 min** |
-| Sweep, if `index` were the only command | (parse + group) ×20 | 20 × 80 ≈ **26 min** |
+| A user indexing once | parse + group | **~14 s.** Users never sweep |
+| Sweep, stages separate | parse ×1, group ×20 | 7.6 + (20 × 6.7) ≈ **2.4 min** |
+| Sweep, if `index` were the only command | (parse + group) ×20 | 20 × 14.3 ≈ **4.8 min** |
 
-The ~21 minutes saved is **20 redundant parses avoided**. `group` is the *fast* half; the argument was never
-that `group` is slow. **`repohive index` on a mature repo is ~80 s — do not quote ~20 s.**
-
-Secondary justification: running `parse` alone is what you reach for when a graph looks wrong. The stages are
-the research and debugging interface; `index` is the product interface.
+**The time saving is ~2.4 minutes, not ~21.** So the stages are kept on their durable grounds rather than on
+speed: **Req 4.4 requires the sweeps without code changes**, and running `parse` alone is the natural move when
+a graph looks wrong. The stages are the research and debugging interface; `index` is the product interface.
+**Do not cite a large time saving.**
 
 Artifact layout — **decided**, default `.repohive/` with `--out` to override:
 
@@ -517,10 +523,13 @@ the 2026-08-22 finding that nothing was unblocked by sequencing CLI first.
 
 ### Blockers
 
-1. **Tool-call timeouts vs. an 80 s pipeline.** Reading an existing index is fast. Indexing broadleaf is
-   ~80 s measured, which exceeds typical MCP client tool timeouts. **v1 reads an index the user already
-   produced.** Any indexing tool must be fire-and-forget with a separate status tool, which drags in the
-   whole Path 4 job model — so keep it out of v1.
+1. **Tool-call timeouts vs. pipeline duration — weakened 2026-08-24, and worth re-deciding.** This originally
+   read "indexing broadleaf is ~80 s, which exceeds typical MCP client tool timeouts," and concluded that v1
+   must be read-only. **The true figure is ~14 s** (see `DECISIONS.md`), which is *borderline* rather than
+   disqualifying — slow for an interactive agent call, but inside many client timeouts. So an `index` tool in
+   v1 is more plausible than previously recorded. **Still recommended for v1: read an index the user already
+   produced**, because a fire-and-forget tool plus a status tool drags in the whole Path 4 job model for
+   modest benefit. But the reason is now scope, not an impossibility.
 2. **Read-path fs coupling** (`index-parser.ts:10`) is *not* a v1 blocker: a local MCP server reading a
    local `index/` is exactly what the current code does. It becomes a blocker only for a hosted MCP.
 3. **The tool surface is the actual design work.** Plumbing is trivial; deciding what an agent should be
@@ -552,9 +561,98 @@ Everything in that decision entry stands and is not restated here: codeload tarb
 content-addressed snapshot ids, `visibility` on the snapshot from day one, the indexer living outside
 `packages/web`, and the full guard-rail list. What follows is only what this session added.
 
+### Cold vs warm — applies to every timing in this document
+
+Established by experiment 2026-08-24 (`DECISIONS.md`): **first access to freshly-written files costs ~15 ms per
+file.** Copying the 2985 broadleaf files to a fresh path and parsing three times gave **51.0 s → 6.6 s →
+6.2 s** with identical output. Warm I/O for all 2985 files is only 0.33 s, so this is not the parser.
+
+| Figure | Cold | Warm |
+|--------|-----:|-----:|
+| `parse` broadleaf | ~50 s | ~6–8 s |
+| pipeline broadleaf | ~57 s | ~14 s |
+
+**Why it matters here.** A hosted indexer downloads a tarball and extracts it, so those are freshly-written
+files and the cold path is the one that runs. **Likely mitigated on Linux** — the leading cause is on-access
+antivirus scanning, and Linux hosts typically run none — **but that is an assumption and must be measured on the
+target instance.** Add a cold-vs-warm measurement to the hosted-path plan before quoting any indexing duration.
+
+The same applies to the CLI: a user who clones a repo then immediately runs `repohive index` is on the cold
+path, so a Windows first index of a broadleaf-sized repo is ~50 s rather than ~14 s.
+
+### Workarounds for the cold penalty — measured 2026-08-27, NONE implemented
+
+Probed with three fresh copies of the 2985 broadleaf files, walk timed separately from reads:
+
+| Mode | Walk | Read | Per file |
+|------|-----:|-----:|---------:|
+| cold, sequential | 0.33 s | **59.06 s** | 19.79 ms |
+| cold, concurrent ×16 | 0.32 s | **8.64 s** | 2.90 ms |
+| cold, concurrent ×64 | 0.42 s | 8.95 s | 3.00 ms |
+| warm, sequential | 0.46 s | 0.87 s | 0.29 ms |
+
+"Cold" = the first ever read of those files, created moments earlier by the copy, so neither the OS page cache
+nor the antivirus verdict cache has seen them. "Warm" = the same files at the same paths read again, after both
+caches have. That is the only variable between rows.
+
+**The walk is innocent** (0.33 s cold = warm; discovery needs no work). **The penalty is per-file read latency,
+and it parallelizes 6.8x.** ×64 saturates.
+
+**Two bounds worth keeping in view.**
+
+- **A warm parse is ~85% CPU.** Warm reads are 0.87 s of a ~6.4 s warm parse, the rest being Tree-Sitter
+  parsing, symbol-table construction, stitching and serialization. **So the prefetch fixes the cold path and
+  can do essentially nothing for the warm one** — cold ~51 s → ~15 s, warm stays ~6 s. Making warm parse
+  faster is a different lever (`worker_threads` around Tree-Sitter) and probably not worth it at 2985 files.
+- **The concurrency curve is flat past the knee, so overshooting is cheap and undershooting is not:** ×1
+  59.06 s · ×16 8.64 s · ×64 8.95 s. Overshooting 4x cost 3.6%; undershooting cost 580%. Pick a value
+  comfortably past the likely knee and stop tuning. Any concurrency ≥8 overlaps most of the latency regardless
+  of machine specifics, and on a machine with no penalty it still never hurts (warm 0.15 s vs 0.87 s). **The
+  penalty magnitude varies a lot by machine** (AV product and settings, OS, disk); the *effect* of concurrency
+  is what is consistent, not the size of the win.
+
+Full constraints in `DECISIONS.md`; ranked options:
+
+1. **Concurrent prefetch, then sequential extraction in canonical order** — the CLI lever. Projected cold
+   `parse` ~51 s → **~15 s**, warm unchanged. Bound the read-ahead for very large repos (13.4 MB for
+   broadleaf, ~134 MB at 10x). **Exact shape, confirmed against the code 2026-08-27:**
+
+   - `AstExtractor.extract` is **explicitly synchronous** and `AstExtractorDeps.readFile(path): string` returns
+     a string, so `readFile` cannot become async without changing the interface — **and it does not need to.**
+   - New orchestrator step between collect (step 2) and extract (step 3): read the collected files
+     concurrently into a `Map<absolutePath, string>`, then build the extractor with
+     `readFile: (p) => map.get(p)`.
+   - **Unchanged:** the `AstExtractor` interface, `extract()`, the extraction loop, and the order anything is
+     processed. The loop still walks `files` in canonical order; it just finds the bytes already in memory.
+     This is what makes determinism structural rather than something to be tested for.
+   - **The concurrency value belongs in `ParseOptions`** as an optional field beside the existing
+     `excludedSegments?`, so no existing caller changes.
+   - **Do not expose it as a CLI flag initially.** Every published flag is a permanent contract, and this is a
+     workaround for an environment quirk rather than a domain choice a user can reason about. Adding a flag
+     later is backwards-compatible; removing one is not.
+   - **Do not derive the default from CPU count.** The bottleneck is I/O latency, not compute, so core count is
+     the wrong predictor. A fixed 16 beats `os.cpus().length`.
+2. **Parse from the archive stream without extracting** — the cloud lever, and it **eliminates** rather than
+   mitigates: no new files on disk, one sequential read instead of 2985 opens. **A live input to the
+   source-provider seam design**, which must now choose between extract-then-walk and stream-from-archive.
+   Tar entries need canonical sorting first.
+3. **Antivirus exclusion** — maintainer's own `fixtures/` only, needs admin. **Never user-facing guidance:**
+   the CLI indexes repositories a user just cloned from the internet, the one directory most warranting a
+   scanner.
+4. **Content-hash caching / snapshot ids** — orthogonal. Helps re-indexing, not the *first* index. Do not treat
+   the planned snapshot-id work as covering this.
+5. **`worker_threads` for Tree-Sitter** — targets the ~7 s of real parsing, not this penalty. Costs a WASM
+   instance per worker. Parked.
+6. **Do nothing** — defensible if Linux proves unaffected, but that is unmeasured and a user's first run is
+   genuinely cold.
+
+Suggested split: **2 for the cloud, 1 for the CLI, 3 privately, note 4 and 5.** Not decided.
+
 ### Serverless indexing: not first
 
-Assessment of the owner's Lambda proposal, against the measured 80 s worst case.
+Assessment of the owner's Lambda proposal. **Note the worst case is ~14 s warm / ~57 s cold, not the ~80 s this
+section was originally written against** (corrected 2026-08-24), which *strengthens* the case for Lambda and
+weakens one of the three arguments below — flagged inline.
 
 Streaming is **not** the obstacle it first appeared to be. Lambda response streaming works through
 Function URLs, and API Gateway supports a `STREAM` response transfer mode for proxy integrations;
@@ -568,8 +666,10 @@ The case against Lambda first is different, and stands on three points:
 1. **It is already the anticipated second step.** The recorded design puts the pipeline in
    `worker_threads` and notes the same worker code "later lifts into a separate service unchanged."
    Building Lambda now buys nothing the design does not already allow later.
-2. **An always-on process the owner already runs is the simplest implementation** of a watchable 80 s
-   operation holding an SSE connection.
+2. **An always-on process the owner already runs is the simplest implementation** of a watchable operation
+   holding an SSE connection. **This argument is materially weaker at ~14 s than at ~80 s** — a 14 s held
+   invocation is far more comfortable for a serverless function, so this point no longer carries much weight.
+   Points 1 and 3 do not depend on duration and stand unchanged.
 3. **WASM packaging bites hardest here.** See the foundation section: `resolveGrammarPaths` resolves two
    `.wasm` files from `node_modules` and breaks under bundling. Solvable via `GrammarOptions`, but it
    means debugging WASM resolution in a cold-start environment instead of shipping the feature.
@@ -603,7 +703,7 @@ engine being inside the served work is intended. Retained here only so the reaso
 and re-argued.
 
 **Consequence:** if a separate engine-only service is built, it must be justified on performance or
-operational grounds alone — for instance keeping an 80 s CPU-bound pipeline off the web tier. Licence
+operational grounds alone — for instance keeping a ~14 s CPU-bound pipeline off the web tier. Licence
 separation is not a reason. Attribution obligations are unchanged (`NOTICE`, AGPL-3.0-or-later).
 
 ### Auth, in cost order

@@ -9,6 +9,273 @@ undone.
 
 ---
 
+## 2026-08-29 — Fable has total design authority over the viewer; the bar is Awwwards-worthy
+
+**Decided.** Extends the entry below, which granted new-*component* latitude. This grants **design authority
+over everything visual**, which is materially broader.
+
+- **Every visual decision is Fable's:** the graph viewer, the zoom canvas, node shapes, edge rendering, the
+  layout algorithm, typography, colour, spacing, motion, iconography, the information architecture, the
+  navigation, and **the three existing "real" surfaces**. Rewriting the canvas from scratch is explicitly
+  permitted.
+- **Nothing vendored is a design decision.** Those components were adopted to get engine data on screen
+  quickly. They carry another product's aesthetic, not ours.
+- **The bar is an Awwwards-worthy site** — distinctive identity, considered motion, deliberate typography,
+  craft at every state — not a tidy developer dashboard.
+- **Fable works as a senior designer, not an implementer**, and is invited to push back on the brief,
+  restructure the information architecture, and reject listed surfaces in favour of better ones.
+
+**Constrains.**
+
+1. **Sections 2–7 of the brief are an inventory, not a specification.** Stated at the top of the document and
+   in § 10. Do not treat the component tables as a work list; they exist so the engine's output need not be
+   rediscovered.
+2. **Exactly four things survive full latitude**, framed as correctness and legal rather than aesthetic:
+   never display a number the engine did not record (the neutral-zero rule still binds) · keep layout
+   deterministic, any algorithm being fine provided it is seeded and stable, because a viewer that renders
+   differently per load undercuts the engine's determinism claim and breaks reproducible paper figures ·
+   accessibility is part of the bar, and **preserve/reconstruct must not be conveyed by colour alone** ·
+   `NOTICE` attribution stays accurate for whatever vendored code remains.
+3. **Do not re-narrow this later.** If a future session finds the brief's suggestions being ignored, that is
+   the intended behaviour, not drift.
+4. The design opportunities listed in § 10 (visual language for the decision states, density at 2985 files,
+   the boundary morph, the slider, progressive disclosure over dashboards, empty/loading/truncated states) are
+   **starting points, not requirements.**
+
+## 2026-08-29 — Viewer handed to Fable; all other workstreams on hold; new components are in scope
+
+**Decided.**
+
+- **The viewer is handed to Fable.** The brief is **`docs/viewer-handoff.md`** (283 lines), now the
+  authoritative document for viewer work.
+- **Every other workstream is on hold** mid-planning — CLI, foundation seams, MCP, hosted. Paused, not
+  cancelled; all their recorded decisions stand.
+- **Fable is cleared to build new components**, not merely adapt vendored ones, including improving the viewer
+  itself.
+
+**Why.** Owner's call, driven by the live academic deadline. The reuse-only framing was too narrow: the
+vendored components were built for a different product and **none was designed to surface a
+preserve-vs-reconstruct decision, because no other tool makes one** — so the surfaces that demonstrate this
+project best do not exist in the vendored set at all.
+
+**Unresolved placement problem, flagged not solved.** The brief was written to `docs/viewer-handoff.md` in
+**this repo, which the 2026-08-28 entry below froze as the archive.** Development moved to
+`D:\PROJECTS\repohive-public`, which is on `main` with the engine history but **has no `docs/` directory**. So
+the brief currently sits where Fable will not be working. It is also untracked here. **Owner must decide
+whether it moves to the public repo, and no cross-repo copy was made unprompted.**
+
+**Constrains.**
+
+1. **`docs/viewer-handoff.md` is authoritative for viewer work** wherever it ends up living. Update it rather
+   than re-deriving; if it disagrees with the code, the code wins and the brief is fixed in the same change.
+2. **The parked viewer-component question is now open and delegated.** The 2026-08-23 instruction not to start
+   that brainstorm is superseded — but it is Fable's to run, not to be reopened here unprompted.
+3. **New components go in a separate namespace:** `packages/ui/src/repohive/` for shared ones,
+   `packages/web/src/components/<surface>/` for surface-specific ones. **Do not add our components inside
+   vendored folders** (`ui/src/workspace/`, `ui/src/health/`, …) — that muddles which code came from upstream,
+   which matters for `NOTICE` attribution. Extending a vendored type additively is fine and precedented
+   (`ZoomNode.decision`); forking one is not.
+4. **Components must not derive metrics the engine did not record.** These surfaces are evidence precisely
+   because every number is read from the index. If a value is missing, request an additive engine field rather
+   than computing it client-side. The neutral-zero rule from `zoom-map-adapter.ts` still binds.
+5. **One honest limit to hold in the UI:** a client-side boundary-sensitivity slider is pure arithmetic over
+   the recorded `score` and boundary, and can legitimately show *which regions would flip*. It **cannot** show
+   the resulting hierarchy, because a reconstructed region's groups require community detection to actually
+   run. Show the flip set; never imply a recomputed tree.
+6. **Do not resume the held workstreams without an explicit owner call.** Whenever they restart: confirm
+   lockstep versioning, then define the orchestration signature.
+
+## 2026-08-28 — Development moves to the public repo; this repo is frozen as the archive
+
+**Decided by the owner.** All further coding happens in the public `RepoHIVE`
+(`D:\PROJECTS\repohive-public`). `RepoHIVE-Archive` (`D:\PROJECTS\GRAPH`) is frozen — it keeps the
+full working history and all private material, and stops receiving new work. The workflow also moves
+from the Kiro IDE to Claude Code.
+
+**Consequence that needed solving.** The public repo will gitignore `.kiro/`, so a fresh clone on
+another machine arrives with no memory, no conventions and no decision history. The owner already
+works from a second machine, so this is a real blocker, not a hypothetical.
+
+**Constrains.**
+
+1. **Gitignored paths are invisible to Claude Code's search.** Read takes an explicit path and
+   ignores gitignore, but Grep and Glob are ripgrep-backed and ripgrep honours `.gitignore` by
+   default. So `.kiro/` cannot be *discovered* by an agent exploring the public repo — and the
+   failure is silent, indistinguishable from an agent choosing not to look. Any design that assumes
+   discovery is wrong. Knowledge must be loaded deterministically through `@` imports in a tracked
+   root `CLAUDE.md`.
+2. **Import budget is now a real cost.** Under Kiro, steering size was nearly free. Under Claude Code
+   the imported set is paid on every session, so the ~150-line ceiling `steering/memory.md` sets for
+   `PROJECT_STATE.md` starts to matter. It is currently 220 lines and needs trimming.
+3. The `@`-import versus read-on-demand versus never-load split follows the classification
+   `steering/memory.md` already defines. The three registers total ~509 KB and must never be
+   auto-loaded.
+4. Kiro *content* ports as plain markdown (verified: no `inclusion:` frontmatter, no `#[[file:]]`
+   references in steering). Kiro *machinery* does not — hooks, agents and MCP config all need
+   rewriting into Claude Code's formats.
+
+**Proposed but NOT ratified**, so do not treat as settled: mounting a separate private repo at
+`.kiro/` as the delivery mechanism, and the rejection of a git submodule for it (`.gitmodules` is
+tracked, so it would publish the private repo's URL). Full brief, tasks and acceptance criteria in
+`docs/plan/private-knowledge-repo-plan.md`. Owner approval is required before implementing, and
+separately before any part of `.kiro/steering/` is made public.
+
+## 2026-08-27 — The cold-start penalty is per-file read latency and parallelizes 6.8x
+
+**Measured, not decided.** No workaround has been chosen or implemented; this entry exists so the measurements
+and the design constraint they imply are not re-derived.
+
+**The probe.** Three fresh copies of the same 2985 broadleaf `.java` files (so every read was genuinely cold),
+with the directory walk timed separately from the reads:
+
+| Set | Mode | Walk | Read | Per file |
+|-----|------|-----:|-----:|---------:|
+| cold | sequential | 0.33 s | **59.06 s** | 19.79 ms |
+| cold | concurrent ×16 | 0.32 s | **8.64 s** | 2.90 ms |
+| cold | concurrent ×64 | 0.42 s | 8.95 s | 3.00 ms |
+| warm | sequential | 0.46 s | 0.87 s | 0.29 ms |
+| warm | concurrent ×16 | 0.36 s | 0.15 s | 0.05 ms |
+
+**Findings.**
+
+1. **The directory walk is not implicated** — 0.33 s cold, identical to warm. `source-collector`'s
+   `readdir` + `stat` needs no optimization.
+2. **The whole penalty is per-file read latency**, 59 s of it serialized across 2985 sequential reads.
+3. **Concurrency ×16 gives 6.8x** (59.06 s → 8.64 s). The cost is *waiting*, and waiting parallelizes.
+4. **×64 buys nothing** (8.95 s); it saturates around 16.
+5. **Projected: cold `parse` ~51 s → ~15 s; warm essentially unchanged** (~7 s, reads already sub-second).
+
+**Probe caveat, disclosed:** the throwaway script's byte counter raced across async workers (`bytes +=` is not
+atomic across `await`), so concurrent runs under-report chars. Timing is unaffected — all 2985 reads completed.
+
+**Constrains.**
+
+1. **If a prefetch is built, it must be "concurrent fetch, then sequential extraction in canonical order."**
+   Read into memory concurrently, then run the existing extraction loop unchanged, pulling from the map. Only
+   *when* bytes are fetched changes; the processing order does not, so byte-identical output is structurally
+   guaranteed rather than hoped for. **Any design that lets read-completion order reach the graph is
+   forbidden** — determinism is a hard constraint (`conventions.md`).
+2. **Use concurrency ~16, not higher.** Measured saturation.
+3. **Bound the read-ahead for large repos.** 13.4 MB for broadleaf is trivial; a 10x repo is ~134 MB, so a
+   sliding window is preferable to slurping everything.
+4. **Parsing from an archive stream without extracting eliminates this rather than mitigating it** — zero new
+   files on disk means zero first-access cost, and one sequential read replaces 2985 opens. **This is now a
+   live input to the source-provider seam design**, which must decide between extract-then-walk and
+   stream-from-archive. Caveat: tar entries arrive in archive order and need canonical sorting first.
+5. **Do not recommend an antivirus exclusion to users.** It works and is fine for the maintainer's own
+   `fixtures/` while benchmarking, but the CLI's purpose is indexing repositories a user has just cloned from
+   the internet — the one directory that most warrants scanning. It must not appear in the README or any
+   user-facing guidance.
+6. **Content-hash caching / snapshot ids do not address this.** They help re-indexing; the cold case is the
+   *first* index. Do not treat that planned work as covering this.
+7. **The workaround is robust to the unresolved attribution.** Defender was never isolated as the cause
+   (see the 2026-08-24 entry), but whatever produces ~20 ms of per-file first-access latency, parallelizing it
+   helps. The fix does not depend on being right about the mechanism.
+8. `worker_threads` for the Tree-Sitter work targets the ~7 s of real parsing, not this penalty, and costs a
+   WASM instance per worker. Parked as low priority.
+
+## 2026-08-24 — Root cause of the bad timings: first-access cost on freshly-written files, ~15 ms/file
+
+**Established by experiment**, closing the open question left by the earlier entry today (which recorded cold
+cache as an unproven hypothesis).
+
+**The experiment.** Copied the same 2985 broadleaf `.java` files to a fresh path and parsed the copy three
+times. Identical content, identical output (29,190 nodes) every run:
+
+| Run on a fresh copy | Time |
+|---------------------|-----:|
+| **1st — files never accessed before** | **51.0 s** |
+| 2nd | 6.6 s |
+| 3rd | 6.2 s |
+
+That reproduces the 2026-08-22 anomaly (68.3 s) on demand. The residual gap between 51 s and 68.3 s is
+plausibly the heavy replay work running concurrently that evening — the BRAIN timeline shows `git filter-repo`
+and batch dry-runs between 20:55 and 23:38.
+
+**The mechanism.** Reading all 2985 files warm costs **0.33 s** for 13.4 MB, so I/O is 4% of a normal parse.
+The extra 44.6 s on first access is **14.9 ms per file**. An SSD page-cache miss on a 4.6 KB file is well under
+1 ms, so cache-miss alone cannot produce this. Windows Defender real-time **and** on-access protection are
+enabled on this machine, and on-access scanning of newly-created files at 10–30 ms each matches the magnitude;
+Defender caches its verdict per file, which is why run 2 onward are fast.
+
+**Attribution limit — stated because it was not isolated.** The first-access penalty is proven and measured.
+Defender specifically is the *leading* explanation, not a demonstrated one: isolating it needs an antivirus
+exclusion test, which requires administrator rights and modifies a security setting, so it was not done.
+
+**Constrains.**
+
+1. **Quote two numbers, never one: `parse` broadleaf is ~6–8 s warm and ~50 s cold** (first access to
+   freshly-written files). Reporting either alone is misleading. Same for the pipeline: ~14 s warm.
+2. **A user's first run will be cold.** Someone clones a repo and immediately runs `repohive index`, so on
+   Windows a broadleaf-sized first index is ~50 s, not ~14 s. **Do not put a warm figure in the README or in
+   any user-facing claim without saying it is warm.**
+3. **The hosted path probably escapes this, but that is an assumption, not a measurement.** A server extracting
+   a tarball also creates fresh files, but Linux hosts typically run no on-access scanner. **Measure on the
+   actual instance before relying on it** — the 51 s is a Windows-developer artifact, not a property of the
+   pipeline.
+4. **The parser is not slow and needs no optimization.** ~6.2 s for 2985 files is ~2 ms/file of real work.
+   Any future performance effort belongs where the measurement says, not where a cold run suggested.
+5. **Benchmarking rule, strengthened from the earlier entry:** discard the first run *or* report cold and warm
+   separately as two labelled figures. Three runs minimum.
+6. **A measurement with no recorded method is not a measurement.** The session that produced the 2026-08-22
+   figures wrote no `BRAIN` entry, so its conditions were unrecoverable and had to be reconstructed
+   experimentally. Any figure that reaches `PROJECT_STATE` or `DECISIONS` must have a `BRAIN` entry stating how
+   it was obtained.
+
+## 2026-08-24 — The recorded pipeline timings were wrong by up to 9x; supersedes every figure derived from them
+
+**Decided (correction of record).** The wall-clock figures recorded 2026-08-22 are **not reproducible** and are
+superseded. Re-measured 2026-08-24 on the same machine and the same fixtures, three runs each:
+
+| Stage | Recorded 2026-08-22 | Measured 2026-08-24 | Error |
+|-------|--------------------:|--------------------:|------:|
+| `parse` broadleaf (2985 files) | 68.3 s | **8.2 / 6.9 / 7.6 s** | ~9x high |
+| `group` broadleaf | 11.3 s | **9.0 / 6.7 / 6.5 s** | ~1.7x high |
+| `parse` vantage (158 files) | 4.7 s | **3.5 / 1.2 s** | ~2–4x high |
+| **full pipeline, broadleaf** | **~80 s** | **~14 s** | ~5.7x high |
+
+**Output is unchanged and correct:** 29,190 nodes (2985 file / 3595 class / 22,610 function), 14,325 edges,
+502 regions, preserve 38 / reconstruct 464 — identical to the recorded values, and stable across all three
+`group` runs. **So this is a measurement defect, not a code regression.** The owner's recollection that parse
+ran "in 10s of time" was accurate; the recorded number was not.
+
+**Most probable cause: cold filesystem cache on first-ever runs.** In every three-run set measured today,
+run 1 was the slowest (8.2 vs 6.9/7.6 · 9.0 vs 6.7/6.5 · 3.5 vs 1.2), and the error scales with file count —
+broadleaf at 2985 files is ~9x off while vantage at 158 files is ~2–4x off. The 2026-08-22 figures were
+first-ever runs against freshly cloned fixtures. **Not provable retroactively**, so this is the leading
+explanation rather than an established fact.
+
+**Constrains.**
+
+1. **Quote ~8 s parse / ~7 s group / ~14 s pipeline for broadleaf.** Every prior figure is void.
+2. **"Parse dominates group 6:1" is FALSE and must not be repeated.** The two stages are roughly equal, parse
+   marginally ahead (~7.6 s vs ~6.7 s). The related claim that parse is where parallelism would pay is no
+   longer supported either.
+3. **The `~1.5 s of npm + WASM startup` overhead claim is overstated** — a warm vantage parse completes in
+   1.2 s total, so startup is well under that.
+4. **Supersedes constraint 4 of the 2026-08-23 "CLI requirements spec unblocked" entry**, which instructed
+   "do not quote 20 s" and asserted ~80 s. **The owner's ~20 s estimate was right and my correction of it was
+   wrong.** The true figure is ~14 s.
+5. **The sweep argument for keeping `group` separately callable is now weak on time grounds.** Recomputed: 20
+   points cost 7.6 + (20 × 6.7) ≈ **2.4 min** with the stages separate versus 20 × 14.3 ≈ **4.8 min** with
+   `index` only — a ~2.4 min saving, not the ~21 min previously claimed. **The decision to keep the stages
+   stands**, but now on its durable grounds: algorithm spec **Req 4.4** requires boundary sweeps without code
+   changes, and running `parse` alone is the natural move when a graph looks wrong. Stop citing a large time
+   saving.
+6. **The 2026-08-22 live-indexing decision is strengthened, not weakened.** Its conclusion — that a full run is
+   watchable, so no queue/broker/worker-fleet is needed — holds more strongly at ~14 s than at ~80 s. Its
+   premise number is wrong; its reasoning survives.
+7. **`groupGraph` off the request thread still stands.** At ~6.7 s of synchronous CPU-bound work it remains
+   worth a worker thread; only the "11 s" figure changes.
+8. **Never record a first-ever run as a representative timing.** Measure three runs and report the range or the
+   median. This entry exists because a single cold run became a load-bearing number for two days and drove
+   architectural conclusions.
+
+**Not investigated:** whether `main` parses faster or slower than `fable-work`. The owner asked, but the
+premise — that a downstream change had slowed parsing — is disproven, since HEAD parses 2985 files in ~7.6 s.
+A `main` comparison would only quantify wave A's incremental extraction cost, which is now academic. Offered,
+not done.
+
 ## 2026-08-23 — Steering's tool lists are extensible, not boundaries
 
 **Decided.** The lists in `steering/stack.md` are **not hard boundaries**. New tools and dependencies may be
