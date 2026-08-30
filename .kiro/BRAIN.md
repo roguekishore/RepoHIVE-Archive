@@ -1764,3 +1764,50 @@ No code changed in this session's tail — documentation + state only. Wave B re
 - **Still open from the brief**: DSM/heatmap/coupling-ring reuse surfaces, per-leaf size engine field
   (unlocks treemaps), partition-disagreement metric, determinism panel, and the full visual-identity pass —
   the current work is craft-clean but the Awwwards-bar identity (§10) is genuinely not yet attempted.
+
+## 2026-08-30 10:47 — Phase-2 viewer brief; two of my own claims retracted; degenerate rule measured
+
+- **What:** Owner reported the rebuilt viewer looked poor and asked for a stronger brief plus prompts. Read the
+  first slice properly — Fable's own `BRAIN` entry, the commits, and `decision-audit/page.tsx` — then **rewrote**
+  `docs/viewer-design-brief.md` from scratch and produced two paste-ready prompts. No code changed.
+- **Retracted two claims I had made in the first version of that brief.** I had asserted the scatter plotted raw
+  unbounded cohesion on a [0,1] axis and that its dashed boundary diagonal was wrong. **Both were false.** The
+  builder's record states the scatter is already in normalised space (squashed cohesion × independence), which is
+  exactly where the decision rule is a straight line. The retraction is § 0 of the rewritten brief so nobody acts
+  on the wrong version. **Cause: I diagnosed from a screenshot and my own earlier notes instead of reading the
+  implementation record that already existed.** The information for the correction was sitting in `BRAIN.md`
+  the whole time.
+- **Also corrected my framing of the whole problem.** I had assumed the first slice was thin. It was not — morph,
+  provenance card with `String(v)` exact rendering, shape+colour dual encoding, `prefers-reduced-motion`, URL
+  state via nuqs, honest landing, 19 dead shells culled, and a `ui/src/repohive/` namespace all shipped. The
+  builder's own closing line was the accurate diagnosis: *"craft-clean but the Awwwards-bar identity is genuinely
+  not yet attempted."* Rebuilt the brief around identity, structure and coverage rather than correction.
+- **Measured the degenerate rule** — the one genuinely new finding, now in `PROJECT_STATE`:
+  broadleaf **216 of 502 (43%)**, vantage 3 of 20, jsoup **unmeasured** (fixture git-ignored and absent from this
+  machine). All 216 broadleaf cases carry `decisionConfidence: 0.5`, the dataset maximum, so any confidence-keyed
+  chart shows unassessed regions as the most confident decisions in the run. Detect with
+  `score === 0 && cohesion === 0`; no explicit flag exists.
+  **Assessed-only splits are the adaptivity evidence:** vantage 59% preserve, broadleaf 13%. Same algorithm, seed
+  and configuration — different repositories, different answers.
+- **Found a live falsehood on the surface**, recorded as a risk: `decision-audit/page.tsx:242` states "Every
+  region was measured and its boundary either preserved or reconstructed." `ActionPill` is strictly binary and
+  `reconstruct` uses `--color-warning`. The provenance card already handles the individual degenerate case, so
+  this is page-level framing only — but it is the one claim on screen a judge could falsify from the data.
+- **Structural finding the prompts turn on:** commit `b47289d` put config panel + strip + scatter + provenance +
+  morph + table into a single 403-line route. **That is why it reads as a dense wall, and restyling cannot fix
+  it.** Proposed splitting into six surfaces (Overview and Before/After new, Decisions slimmed, Adaptivity
+  cross-repo). My first prompt listed components without assigning routes, which would have made the single page
+  worse — the owner caught that by asking whether any new pages were introduced.
+- **Sequenced the prompts deliberately:** A (identity + split) before B (new surfaces), so new surfaces inherit
+  the visual language instead of needing a third pass. Prompt A also instructs a visual-language proposal
+  *before* broad implementation, since going straight to code is what produced this round.
+- **Did not touch** `docs/academic/3rd/review-3-demo-guide.md`, which is open in the editor but sits in a folder
+  steering excludes from context. Its numbers may now conflict with the assessed-only splits; flagged, not
+  edited.
+- **No `DECISIONS` entry:** nothing was decided. The brief and prompts are proposals; the owner has chosen no
+  option.
+- **Honesty notes:** no code changed, so no gates apply. jsoup's degenerate count and the visual outcome of
+  either prompt are both unverified. `PROJECT_STATE` grew 263 → ~290 lines against a ~150 ceiling; the
+  degenerate table earns its space but the trim is now five sessions overdue.
+- **Next:** owner runs prompt A. Re-index `fixtures/jsoup` and measure its degenerate count before quoting any
+  jsoup split in the demo.

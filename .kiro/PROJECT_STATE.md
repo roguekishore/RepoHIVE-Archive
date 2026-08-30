@@ -4,7 +4,7 @@
 > Rewrite sections in place; delete superseded text rather than annotating it. Keep this file short.
 > Why things are the way they are: `DECISIONS.md`. What happened when: `BRAIN.md`.
 
-Last updated: 2026-08-29 22:29
+Last updated: 2026-08-30 10:47
 
 ---
 
@@ -26,7 +26,8 @@ polishing the existing viewer with a few more components is sufficient for it.
 their decisions all stand. The viewer-component question that was parked is now **open and delegated**, with
 Fable explicitly cleared to build new components rather than only reuse vendored ones.
 
-**Branch:** `fable-work`, treated as the **default**. No merge to `main` will happen. Branch placement of
+**Branch:** **`fable-work-new`** is the current working branch (`fable-work` preceded it). No merge to `main`
+will happen. Branch placement of
 memory and doc commits, and the git/replay plans, are out of scope for workstream planning.
 
 ## Verified state
@@ -100,6 +101,29 @@ entries carry `regionId`/`ordinal`. A new untracked demo fixture exists: **`jsou
 edges, 8 regions, **preserve 3 / reconstruct 5**, `helper` at score 0.478 sitting 0.022 under the boundary
 — the ideal slider demo). Clone in `fixtures/jsoup-src/`, both git-ignored.
 
+**A large share of regions are never assessed — they hit the degenerate rule** (measured 2026-08-30).
+`core/src/assessor.ts` assigns `degenerateScore = 0.0` **by rule** to any region with fewer than 2 nodes, zero
+internal edges, or zero intra-region strength, which is then reconstructed by default. Detect with
+`score === 0 && cohesion === 0`; **there is no explicit flag.**
+
+| | broadleaf | vantage | jsoup |
+|---|---:|---:|---:|
+| Total regions | 502 | 20 | 8 |
+| **Degenerate** (score 0 by rule) | **216 (43%)** | 3 (15%) | **not measured** |
+| Genuinely assessed | 286 | 17 | — |
+| — preserved | 38 | 10 | 3 of 8 total |
+| — reconstructed on measurement | 248 | 7 | 5 of 8 total |
+
+On broadleaf 203 of the 216 also have `coupling === 1`, and **all 216 carry `decisionConfidence: 0.5`, the
+maximum in the dataset.** So any chart keyed on confidence presents unassessed regions as the most confident
+decisions in the run. **`fixtures/jsoup` is absent from this machine, so its degenerate count is unmeasured —
+do not quote a jsoup split until it is re-indexed.**
+
+**Assessed-only splits are the adaptivity evidence:** vantage preserves **10 of 17 (59%)**, broadleaf **38 of
+286 (13%)**. Same algorithm, seed and configuration; different repositories, different answers. The raw
+headline ("preserve 38 / reconstruct 464") merges "measured as low quality" with "too small to measure" and
+invites the question the honest split answers.
+
 **`metadata.json` carries more than previously recorded** (read 2026-08-29). Each `regionDecisions[]` entry
 has `regionId`, `action`, **`automaticAction`**, **`cohesion`**, **`coupling`**, `score`,
 `decisionConfidence`, `userOverridden`, `groupIds`. Top level adds `perLevel[]` (5 rows of level /
@@ -160,6 +184,12 @@ Blast radius stays an interaction inside the Structure map (no URL, no nav entry
   cull, dead controls dropped. Still open from the brief: DSM / heatmap / coupling-ring reuse surfaces, the
   per-leaf size engine field (treemaps), partition-disagreement metric, determinism panel, and a full visual
   identity pass to the Awwwards bar.
+- **Phase 2 briefed, not started** (2026-08-30): **`docs/viewer-design-brief.md`**, with two paste-ready
+  prompts derived from it — (A) page split, the false-sentence fix, visual identity, de-branding; (B) the
+  showcase surfaces, led by **Adaptivity** (cross-repo, assessed-only, the strongest single argument) and
+  hierarchy-at-scale. Phase B is sequenced after A so new surfaces inherit the visual language.
+  **Its § 0 withdraws two false claims** an earlier version of that brief made about the scatter — it already
+  plots normalised space, where the boundary genuinely is a straight line.
 - **Everything else is on hold** mid-planning, by owner instruction: CLI, foundation seams, MCP, hosted. All
   recorded decisions stand; no work is in flight.
 - **CLI spec remains unblocked whenever it resumes** (2026-08-23): command surface and names final
@@ -196,6 +226,13 @@ incomplete on 2026-08-23.
 
 ## Open questions and known risks
 
+- **A false claim is live on the Decisions surface.** `web/src/app/repos/[id]/decision-audit/page.tsx:242`
+  reads "Every region was measured and its boundary either preserved or reconstructed." **It was not** — see
+  the degenerate-rule table above. `ActionPill` is strictly binary (`"preserve" | "reconstruct"`), so every
+  count and pill on the page merges measured-as-poor with too-small-to-measure, and `reconstruct` renders in
+  `--color-warning`, framing the engine's most common decision as a fault. The provenance card *does* already
+  call out the degenerate rule; the page-level framing does not. **This is the one claim on screen a judge
+  could falsify from the data.** Fix documented in `docs/viewer-design-brief.md` § 1 Gap 2.
 - **`RepoHIVE-Archive` is still public** — verified 2026-08-22 20:55, 8177 KB. The gap, fix and edge-case
   registers are reachable by anyone. **Owner-owned and deliberately out of scope for workstream planning**
   (2026-08-23), so it is not to be raised as a blocker — but it remains a live exposure and is recorded here
@@ -215,8 +252,15 @@ incomplete on 2026-08-23.
   blocking prerequisite for any non-local deployment. The AGPL §13 concern that used to sit beside it is
   **resolved, not outstanding** — everything ships from the public repo (owner, 2026-08-23), so the engine
   being inside the served work is intended. Do not cite AGPL as an architectural constraint.
-- **Gap 1b (method-call edges)** — deferred by design, not closed. `methodCallFrequency` is not fully
-  populated from real call sites.
+- **Gap 1b (method-call edges) — measured 2026-08-30: `methodCallFrequency` is `0.0%` populated, in both
+  fixtures.** Not "not fully populated" as previously recorded — **entirely absent**, 0 of 344 vantage leaf
+  edges and 0 of 14,325 broadleaf. So "who calls whom" is unanswerable today.
+- **Dependency strength is ~90% one signal.** Measured 2026-08-30 across all leaf edges:
+  `sharedTypeCount` 94% nonzero / max 82 on vantage and 77% / max 124 on broadleaf, while
+  **`importFrequency` is effectively a boolean — every nonzero value is exactly 1**, despite the name.
+  `strength` is their plain sum with all coefficients at 1 (vantage: 128 + 0 + 1180 = 1308, exact).
+  **Consequence for any claim about the algorithm: grouping decisions rest almost entirely on shared type
+  references plus an import flag.** Defensible, but state it rather than be caught by it.
 - **The preserve/reconstruct split moves with parser signal, not only with repository quality.** Cohesion is
   raw strength-per-node, squash `k` is 1.0, coefficients are all 1, boundary 0.5 — so enriching the parser
   or raising a coefficient pushes regions toward preserve with no repository changing. Recorded instance:
@@ -244,6 +288,7 @@ Large working documents, not context. Load only when working the specific gap or
 | File | Contents |
 |------|----------|
 | `.kiro/workstreams.md` | The four forward paths: scope, blockers, plans, dependency map, open decisions |
+| `docs/viewer-design-brief.md` | **Phase-2 viewer brief.** Page split, the false-sentence fix, visual identity, showcase surfaces. Two prompts derived from it |
 | `docs/viewer-handoff.md` | **Fable's brief.** Index-file shapes, 12 zero-change surfaces, new-component ideas, constraints |
 | `.kiro/gaps.md`, `.kiro/fixes.md`, `.kiro/edge-case-audit.md` | The 22-gap register with evidence, Fix 3–22 designs, edge-case audit |
 | `docs/fixes-signal-enrichment.md` | Gap 1 design (Fixes 21–23) |
