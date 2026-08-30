@@ -1843,3 +1843,53 @@ No code changed in this session's tail — documentation + state only. Wave B re
   provenance drawer · Before/After for the morph · Flat baseline, `/decision-audit` URL kept) → three-way
   model in `ui/src/repohive/decision-model.ts` with tests → apply the language across surfaces (token
   layer flip, decisionReconstruct re-pointed, decisionDegenerate added; canvas re-themes via TOKEN_SPEC).
+
+## 2026-08-30 13:20 — Phase 3: identity applied + five showcase surfaces (Fable)
+
+- **Gate cleared, then the token layer first.** The approved language landed as
+  `--color-decision-{preserve,reconstruct,degenerate,boundary}` in both themes, dark as the default theme, and
+  `isDegenerate()` / three-way `RegionView` in the shared model. Everything downstream inherits it, including
+  the zoom canvas (it re-resolves tokens at runtime through TOKEN_SPEC, so no canvas code changed).
+  **`reconstruct` left `--color-warning`** for azure; amber is now the boundary alone.
+  **One deliberate deviation from my own proposal:** I did *not* shift the dark ground to #0B0D11. The existing
+  `#0e0e0f` ramp is already near-black, documented, and passes the contrast gate; re-tuning it risked the gate
+  for an imperceptible hue change. The proposal's ground spec was already satisfied.
+- **broadleaf re-created and it reproduces exactly.** Cloned the public BroadleafCommerce repo and re-indexed:
+  2985 files, 502 regions, 216 degenerate, 38 preserved on 286 assessed, depth 6 — identical to the recorded
+  figures. `vantage` remains absent and was **not** re-created, so its 59% is inherited, not re-measured; the
+  Adaptivity surface excludes it and names it as excluded.
+- **Five surfaces built**, all on recorded data, all with stated render budgets: **Adaptivity** (`/adaptivity`,
+  cross-repo, assessed-only, 13% / 43% / 0% across the three present fixtures, with same-configuration
+  *verified* rather than assumed) · **Hierarchy** (radial icicle; decision inherited down the tree, which took
+  jsoup from 95 undecided arcs to 0 and left broadleaf with exactly the 28 known wrapper groups) ·
+  **Architecture** = per-level flow + group DSM + fragmentation + determinism panel.
+- **Two briefed items were refused as specified, and the refusals are the substantive findings:**
+  1. **Group purity is structurally impossible.** A Region *is* an authored package (`pkg:<path>`) and
+     reconstruction partitions strictly *within* a region, so a produced group can never mix packages —
+     measured: **0 of 1,182** reconstructed groups draw from more than one package, on either fixture. A
+     packages→groups mixing flow would assert something the engine cannot produce. Built **Fragmentation**
+     instead (the inverse, which is where the evidence is): broadleaf `common.util` is **65 authored files
+     split into 46 clusters**; jsoup `internal` is 12 → 10.
+  2. **The vendored DsmMatrixView was not fed.** It renders rule violations and dependency cycles, which we do
+     not compute, and `edgeKindStyle(cell.kind ?? "http")` would paint every one of our structural edges as an
+     HTTP transport. Built our own plain-CSS DSM; ordered by recorded region + ordinal so blocks are *read*
+     from the index rather than produced by a clustering pass, and the budget admits **whole regions** because
+     top-N-by-connectivity slices regions apart and destroys the blocks. broadleaf L4: 9 blocks, all
+     multi-group; jsoup L2: 8.
+  - **Coupling ring not built** (lowest priority): its own docs call its edges co-change, ours are structural
+    strength, and the group DSM already covers group coupling. Treemaps still blocked on a per-leaf size field.
+- **Verification reality worth recording.** The Browser pane was `document.visibilityState === "hidden"` for
+  most of the session, which **throttles React's Suspense reveal** — every route rendered its loading fallback
+  in the pane while the server HTML was correct and the content sat in a `div[hidden]`. That is an environment
+  artifact, not a bug; I diagnosed it after bisecting with `git stash` and confirming the same stall on
+  pre-existing pages. So client rendering is verified by **component tests in ui** (testing-library, which is
+  why `AdaptivityComparison` lives in ui rather than web) plus **endpoint checks against real fixtures**, and
+  only server-rendered text by HTML grep. Also self-inflicted: running `next build` while `next dev` shared
+  `.next` produced spurious 500s and one bogus "Failed to collect page data" — clean rebuild passes.
+- **Test counts:** ui repohive **40** (model, format, adaptivity component), web **51** (adapters incl.
+  hierarchy-scale and architecture). The 37 pre-existing vendored ui failures (c4 / docs-tree / theme) and the
+  two pre-existing `ui gates` hex hits are unchanged and were **not** touched. Clean `next build` passes with
+  every new route present.
+- **Next, if the phase continues:** the coupling ring behind an honest relabel; the per-leaf size engine ask
+  (unlocks three treemaps); an Overview surface (the brief's §3.1, still unbuilt); and promoting the morph to
+  its own Before/After route — it is currently still inside Decisions.

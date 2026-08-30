@@ -4,7 +4,7 @@
 > Rewrite sections in place; delete superseded text rather than annotating it. Keep this file short.
 > Why things are the way they are: `DECISIONS.md`. What happened when: `BRAIN.md`.
 
-Last updated: 2026-08-30 10:47
+Last updated: 2026-08-30 13:20
 
 ---
 
@@ -104,23 +104,28 @@ edges, 8 regions, **preserve 3 / reconstruct 5**, `helper` at score 0.478 sittin
 **A large share of regions are never assessed — they hit the degenerate rule** (measured 2026-08-30).
 `core/src/assessor.ts` assigns `degenerateScore = 0.0` **by rule** to any region with fewer than 2 nodes, zero
 internal edges, or zero intra-region strength, which is then reconstructed by default. Detect with
-`score === 0 && cohesion === 0`; **there is no explicit flag.**
+`score === 0 && cohesion === 0`; **there is no explicit flag.** The viewer now recognises this in one place —
+`isDegenerate()` in `ui/src/repohive/decision-model.ts`.
 
-| | broadleaf | vantage | jsoup |
+| | broadleaf | jsoup | sample-java-project |
 |---|---:|---:|---:|
-| Total regions | 502 | 20 | 8 |
-| **Degenerate** (score 0 by rule) | **216 (43%)** | 3 (15%) | **not measured** |
-| Genuinely assessed | 286 | 17 | — |
-| — preserved | 38 | 10 | 3 of 8 total |
-| — reconstructed on measurement | 248 | 7 | 5 of 8 total |
+| Total regions | 502 | 8 | 4 |
+| **Degenerate** (score 0 by rule) | **216 (43%)** | 1 | 3 |
+| Genuinely assessed | 286 | 7 | 1 |
+| — preserved | 38 | 3 | 0 |
+| — reconstructed on measurement | 248 | 4 | 1 |
 
-On broadleaf 203 of the 216 also have `coupling === 1`, and **all 216 carry `decisionConfidence: 0.5`, the
-maximum in the dataset.** So any chart keyed on confidence presents unassessed regions as the most confident
-decisions in the run. **`fixtures/jsoup` is absent from this machine, so its degenerate count is unmeasured —
-do not quote a jsoup split until it is re-indexed.**
+**`vantage` is absent from this machine and was not re-created**, so its 10/17 figure is inherited from the
+earlier record rather than re-measured; the viewer excludes it and says so. `broadleaf` was re-cloned and
+re-indexed 2026-08-30 from the public BroadleafCommerce repo and **reproduces the recorded numbers exactly**
+(2985 files, 502 regions, 216 degenerate, 38 preserved, depth 6).
 
-**Assessed-only splits are the adaptivity evidence:** vantage preserves **10 of 17 (59%)**, broadleaf **38 of
-286 (13%)**. Same algorithm, seed and configuration; different repositories, different answers. The raw
+On broadleaf all 216 degenerate regions carry `decisionConfidence: 0.5`, the maximum in the dataset, so any
+chart keyed on confidence would present unassessed regions as the most confident decisions in the run. The
+viewer renders that cell as absent rather than as a measurement.
+
+**Assessed-only splits are the adaptivity evidence:** broadleaf preserves **38 of 286 (13%)**, jsoup **3 of 7
+(43%)**, sample-java-project **0 of 1** — a 43-point spread now rendered on the `/adaptivity` surface. Same algorithm, seed and configuration; different repositories, different answers. The raw
 headline ("preserve 38 / reconstruct 464") merges "measured as low quality" with "too small to measure" and
 invites the question the honest split answers.
 
@@ -146,21 +151,38 @@ Full detail and the withdrawn alternative: `.kiro/workstreams.md` Path 2.
 
 ## Viewer surface reality
 
-Rebuilt by Fable 2026-08-29 (first slice of `docs/viewer-handoff.md`). **4 real surfaces**: the landing
-page (server-rendered repo index reading real engine numbers from each `index/` on disk, absent fixtures
-shown honestly), **Structure map** (`/knowledge-graph` URL unchanged; decision now carried by the card
-frame — solid = preserved, dashed = reconstructed — plus wash and badge), **Decisions**
-(`/decision-audit`: draggable boundary strip with counterfactual flips over recorded scores, decision
-scatter with the boundary drawn exactly in normalised space, per-region provenance card showing the worked
-calculation, authored-vs-derived boundary morph, sortable audit table), and `flat-baseline`. New
-purpose-built components live in **`ui/src/repohive/`** (outside vendored folders, per NOTICE rule); new
-routes: `region-detail?region=…`, and `region-decisions` additionally serves displayName/fileCount/seed.
+Rebuilt by Fable across two phases (2026-08-29 first slice, 2026-08-30 identity + showcase). **Reachable
+surfaces**, all gated through `repoNavGroups()` / `GLOBAL_NAV` in `nav-items.ts`:
 
-**19 of the 22 redirect shells are deleted** (only repo-root, `/c4`, `/zoom` remain — all landing on the
-real canvas); the two dead Knowledge-Graph controls (Structurizr export, Open-file-page link) are gone;
-`/api/repos` lists only repos whose index exists on this machine. The 26 dead vendored pages remain
-unreachable, not a backlog — filling them needs a git-history analyzer, coverage reader, security scanner.
-Blast radius stays an interaction inside the Structure map (no URL, no nav entry).
+| Surface | Route | Holds |
+|---------|-------|-------|
+| Landing | `/` | server-rendered repo index reading each `index/` directly; absent fixtures shown as absent |
+| **Adaptivity** | `/adaptivity` | cross-repo, **not** repo-scoped: assessed-only preserve rate per fixture, verified same-configuration, score spread |
+| Structure map | `/repos/[id]/knowledge-graph` | the zoom canvas; decision carried by card frame (solid = preserve, dashed = reconstruct) plus wash and badge |
+| **Hierarchy** | `/repos/[id]/hierarchy` | radial icicle: radius = depth, sweep = file count, colour = decision state |
+| Decisions | `/repos/[id]/decision-audit` | boundary strip (binned above 64 regions), normalised scatter, provenance card, morph, audit table — all three-way |
+| **Architecture** | `/repos/[id]/architecture` | per-level flow, group DSM (region-block ordered), fragmentation, determinism panel |
+| Flat baseline | `/repos/[id]/flat-baseline` | the unstructured "before" |
+
+Our components live in **`ui/src/repohive/`** (12 modules, outside vendored folders per the NOTICE rule);
+adapters in `web/src/lib/repohive/`. Routes added: `/api/adaptivity`, `.../hierarchy-scale`,
+`.../architecture`, `.../region-detail`.
+
+**The identity is applied at the token layer**: `--color-decision-{preserve,reconstruct,degenerate,boundary}`
+in both themes, **dark is the default theme**, and **`reconstruct` no longer resolves to `--color-warning`** —
+it is a blueprint azure, because rebuilding a boundary is a success, not a fault. Amber is reserved for the
+quality boundary alone. All three states carry colour + shape + word, so nothing is colour-only.
+
+**19 of the 22 redirect shells are deleted** (repo-root, `/c4`, `/zoom` remain, all landing on the canvas);
+the two dead Knowledge-Graph controls are gone; every visible `repowise` string is out of the chrome;
+`/api/repos` lists only repos whose index exists. The 26 dead vendored pages remain unreachable.
+
+**Two briefed surfaces were deliberately not built as specified**, both for data-honesty reasons recorded in
+`BRAIN.md`: **group purity** (a Region *is* a package and reconstruction partitions within one, so 0 of 1,182
+reconstructed groups mix packages — the mixing flow cannot exist; built **Fragmentation** for the inverse,
+which is where the evidence is) and the **vendored DSM** (it renders cycles and rule violations we never
+compute, and defaults a null edge kind to an HTTP transport). The **coupling ring** is not built: its own docs
+describe its edges as co-change, ours are structural strength, and the group DSM already covers group coupling.
 
 ## Done
 
