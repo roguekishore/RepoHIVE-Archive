@@ -58,6 +58,7 @@ fixtures/sample-java-project
 fixtures/broadleaf
 fixtures/jsoup
 fixtures/jsoup-src
+fixtures/broadleaf-src
 
 # Kiro
 .kiro/settings
