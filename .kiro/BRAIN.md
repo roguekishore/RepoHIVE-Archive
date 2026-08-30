@@ -1811,3 +1811,35 @@ No code changed in this session's tail — documentation + state only. Wave B re
   degenerate table earns its space but the trim is now five sessions overdue.
 - **Next:** owner runs prompt A. Re-index `fixtures/jsoup` and measure its degenerate count before quoting any
   jsoup split in the demo.
+
+## 2026-08-30 11:30 — Phase 2 opened: ungated fixes landed, visual language proposed (Fable)
+
+- **Fixture reality on this machine differs from the brief:** `fixtures/jsoup` and `fixtures/jsoup-src`
+  are PRESENT (the brief assumed absent), and `sample-java-project`'s index is current (8/8 groups carry
+  provenance). Measured degenerate counts: **jsoup 1 of 8** (`org.jsoup.examples`; assessed split 3
+  preserved / 4 reconstructed), **sample-java-project 3 of 4** — the small fixture is effectively the
+  degenerate showcase.
+- **Ungated fixes committed** (`f92f28c`, `eef5bdb`): all visible `repowise` strings removed from the
+  running chrome (sidebar/mobile wordmarks, version footer, feedback dialog, upgrade + reindex banners,
+  what's-new modal incl. dropping the upstream releases link; storage keys/event names/logo filenames
+  untouched as invisible), and the false "every region was measured" sentence on Decisions rewritten to
+  state the degenerate rule. Verified in the running app: no "repowise" anywhere in rendered text.
+  web 27/27, tsc clean. Per the owner's push instructions, commits no longer carry a Co-Authored-By
+  trailer.
+- **Visual language proposed, NOT applied — gated on owner review** per the brief's explicit checkpoint.
+  Artifact "RepoHIVE — visual language proposal" (claude.ai/code/artifact/bed88ef5-d051-4992-a572-ea63f83750e4),
+  built as a live mock on recorded jsoup values with a working boundary slider. The proposal: dark-first
+  ground (#0B0D11 family, 3 text steps) · preserve = emerald #3FCF8E · **reconstruct = blueprint azure
+  #58A6FF, leaving --color-warning** · degenerate = neutral dotted #6B7280 rendered as absent data,
+  excluded from flips, rule-assigned confidence shown as absent · **amber #F59520 reserved solely for the
+  boundary + selection/focus** ("the amber line is the product") · 6-step type scale, tabular numerals,
+  middle-elision (`g_002c…a8e2`) · density budgets (strip 64 marks then binned; scatter 500 then
+  marginal-first; axes scaled to data; truncation always announced) · motion 150 ms, morph 950 ms
+  staggered, reduced-motion cuts.
+- **Three sign-off questions posed:** reconstruct hue (azure vs other non-warning family) · dark as
+  default theme with light kept · number display = 3 decimals + exact on hover + exact in provenance
+  (as the R11.6 reading).
+- **Gated next steps, in order:** page split (Overview new · Structure map · Decisions slimmed w/
+  provenance drawer · Before/After for the morph · Flat baseline, `/decision-audit` URL kept) → three-way
+  model in `ui/src/repohive/decision-model.ts` with tests → apply the language across surfaces (token
+  layer flip, decisionReconstruct re-pointed, decisionDegenerate added; canvas re-themes via TOKEN_SPEC).
