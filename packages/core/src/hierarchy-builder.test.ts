@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import { sortIds } from "./canonical.js";
@@ -15,16 +15,16 @@ import type { RawDependencyGraph } from "@repohive/shared";
 import type { Hierarchy, HierarchyConfig } from "./types.js";
 
 /** Run the full pipeline and return the assembled hierarchy (must succeed). */
-function hierarchyOf(
+async function hierarchyOf(
   graph: Parameters<typeof groupGraph>[0],
   partialConfig?: Parameters<typeof groupGraph>[1]
-): Hierarchy {
-  const result = groupGraph(graph, partialConfig);
+): Promise<Hierarchy> {
+  const result = await groupGraph(graph, partialConfig);
   assert.ok(result.ok, "valid graph must group");
   return result.value.hierarchy;
 }
 
-/** Deterministic Fisher–Yates permutation of an id list (content unchanged). */
+/** Deterministic Fisherâ€“Yates permutation of an id list (content unchanged). */
 function shuffledIds(ids: readonly string[], seed: number): string[] {
   const rng = seededRng(seed);
   const result = [...ids];
@@ -38,8 +38,8 @@ function shuffledIds(ids: readonly string[], seed: number): string[] {
 // Feature: hierarchical-repository-grouping, Property 19: The hierarchy is a single-rooted, acyclic, fully-populated tree
 test("Property 19: the hierarchy is a single-rooted, acyclic, fully-populated tree (R6.1, R6.2, R6.4, R6.5, R11.5)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const hierarchy = hierarchyOf(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const hierarchy = await hierarchyOf(graph);
       const { nodes, repositoryId } = hierarchy;
 
       // Exactly one root: parentId null, kind "repository", level 0.
@@ -89,7 +89,7 @@ test("Property 19: the hierarchy is a single-rooted, acyclic, fully-populated tr
       }
 
       // A file's ancestors below the root are groups only, at least two of
-      // them — one expansion per group level locates the file.
+      // them â€” one expansion per group level locates the file.
       for (const node of nodes.values()) {
         if (node.kind !== "file") {
           continue;
@@ -112,10 +112,10 @@ test("Property 19: the hierarchy is a single-rooted, acyclic, fully-populated tr
 });
 
 // Feature: hierarchical-repository-grouping, Property 20: Every Function is a child of its defining File
-test("Property 20: every function and class is a child of its defining file (R6.3)", () => {
+test("Property 20: every function and class is a child of its defining file (R6.3)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const hierarchy = hierarchyOf(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const hierarchy = await hierarchyOf(graph);
       for (const node of hierarchy.nodes.values()) {
         if (node.kind !== "function" && node.kind !== "class") {
           continue;
@@ -136,8 +136,8 @@ test("Property 20: every function and class is a child of its defining file (R6.
 // Feature: hierarchical-repository-grouping, Property 21: Group sizing is bounded and partitions are minimal
 test("Property 21a: every repository/group node respects maxGroupSize (R6.7, R11.1, R11.2)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph({ maxFiles: 30 }), (graph) => {
-      const hierarchy = hierarchyOf(graph, {
+    fc.asyncProperty(arbitraryDependencyGraph({ maxFiles: 30 }), async (graph) => {
+      const hierarchy = await hierarchyOf(graph, {
         hierarchy: { maxGroupSize: 5, minPartitionThreshold: 2 },
       });
       for (const node of hierarchy.nodes.values()) {
@@ -156,11 +156,11 @@ test("Property 21a: every repository/group node respects maxGroupSize (R6.7, R11
 // Feature: hierarchical-repository-grouping, Property 21: Group sizing is bounded and partitions are minimal
 test("Property 21b: partitionChildren yields the fewest, balanced, order-independent slices (R6.7, R6.8, R11.1)", () => {
   fc.assert(
-    fc.property(
+    fc.asyncProperty(
       fc.uniqueArray(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 1, maxLength: 40 }),
       fc.integer({ min: 2, max: 10 }),
       fc.integer({ min: 0, max: 1000 }),
-      (ids, maxGroupSize, seed) => {
+      async (ids, maxGroupSize, seed) => {
         const slices = partitionChildren(ids, maxGroupSize, 2);
         const n = ids.length;
 
@@ -188,10 +188,10 @@ test("Property 21b: partitionChildren yields the fewest, balanced, order-indepen
 });
 
 // Feature: hierarchical-repository-grouping, Property 23: Children are ordered by ascending child identifier
-test("Property 23: every node's childIds array is strictly ascending (R7.5)", () => {
+test("Property 23: every node's childIds array is strictly ascending (R7.5)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const hierarchy = hierarchyOf(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const hierarchy = await hierarchyOf(graph);
       for (const node of hierarchy.nodes.values()) {
         for (let i = 1; i < node.childIds.length; i++) {
           assert.ok(
@@ -239,21 +239,21 @@ test("DEFAULT_HIERARCHY_CONFIG is {maxGroupSize: 20, minPartitionThreshold: 2} a
   assert.equal(result.value, DEFAULT_HIERARCHY_CONFIG);
 });
 
-test("buildHierarchy's config gate propagates through groupGraph as INVALID_CONFIG (R6.6)", () => {
+test("buildHierarchy's config gate propagates through groupGraph as INVALID_CONFIG (R6.6)", async () => {
   const graph = {
     nodes: [{ id: "file:A.java", kind: "file" as const, directoryPath: "" }],
     edges: [],
   };
-  const result = groupGraph(graph, { hierarchy: { maxGroupSize: 1 } });
+  const result = await groupGraph(graph, { hierarchy: { maxGroupSize: 1 } });
   assert.ok(!result.ok, "invalid hierarchy config must fail the pipeline");
   assert.equal(result.error.code, "INVALID_CONFIG");
 });
 
-test("partitioning cascades deterministically through L2, L1, and the repository bound (R6.7, R11.1, R11.2)", () => {
+test("partitioning cascades deterministically through L2, L1, and the repository bound (R6.7, R11.1, R11.2)", async () => {
   // 30 files in ONE package, preserve forced (boundary 0), maxGroupSize 5:
-  //   L2: one 30-file group → ceil(30/5) = 6 subgroups of exactly 5
-  //   L1: the region's 6 L2 groups exceed the bound → ceil(6/5) = 2 L1 groups (3 + 3)
-  //   Repository: 2 children ≤ 5, no wrapping → depth exactly 3 (repo → L1 → L2 → file)
+  //   L2: one 30-file group â†’ ceil(30/5) = 6 subgroups of exactly 5
+  //   L1: the region's 6 L2 groups exceed the bound â†’ ceil(6/5) = 2 L1 groups (3 + 3)
+  //   Repository: 2 children â‰¤ 5, no wrapping â†’ depth exactly 3 (repo â†’ L1 â†’ L2 â†’ file)
   const dir = "src/com/big";
   const files = Array.from({ length: 30 }, (_, i) => ({
     id: `file:${dir}/F${String(i).padStart(2, "0")}.java`,
@@ -261,7 +261,7 @@ test("partitioning cascades deterministically through L2, L1, and the repository
     packagePath: "com.big",
     directoryPath: dir,
   }));
-  const hierarchy = hierarchyOf(
+  const hierarchy = await hierarchyOf(
     { nodes: files, edges: [] },
     { structuralQualityBoundary: 0, hierarchy: { maxGroupSize: 5, minPartitionThreshold: 2 } }
   );
@@ -316,7 +316,7 @@ function groupsByRegion(hierarchy: Hierarchy): Map<string, Array<{ id: string; o
   return byRegion;
 }
 
-test("a preserved region's groups carry its regionId, ordinals starting at 0 (Gap 12)", () => {
+test("a preserved region's groups carry its regionId, ordinals starting at 0 (Gap 12)", async () => {
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:p/A.java", kind: "file", packagePath: "p", directoryPath: "p" },
@@ -333,7 +333,7 @@ test("a preserved region's groups carry its regionId, ordinals starting at 0 (Ga
     ],
   };
   // Boundary 0 preserves everywhere.
-  const result = groupGraph(graph, { structuralQualityBoundary: 0 });
+  const result = await groupGraph(graph, { structuralQualityBoundary: 0 });
   assert.ok(result.ok);
 
   const byRegion = groupsByRegion(result.value.hierarchy);
@@ -343,7 +343,7 @@ test("a preserved region's groups carry its regionId, ordinals starting at 0 (Ga
   assert.equal(ordinals[0], 0, "ordinals start at 0 within each region");
 });
 
-test("repository-wrapper groups omit provenance, since they match no region", () => {
+test("repository-wrapper groups omit provenance, since they match no region", async () => {
   // Enough regions to force the Repository to wrap (maxGroupSize 2).
   const nodes = Array.from({ length: 8 }, (_, i) => ({
     id: `file:p${i}/F${i}.java`,
@@ -351,7 +351,7 @@ test("repository-wrapper groups omit provenance, since they match no region", ()
     packagePath: `p${i}`,
     directoryPath: `p${i}`,
   }));
-  const result = groupGraph({ nodes, edges: [] }, { hierarchy: { maxGroupSize: 2 } });
+  const result = await groupGraph({ nodes, edges: [] }, { hierarchy: { maxGroupSize: 2 } });
   assert.ok(result.ok);
 
   const wrappers = [...result.value.hierarchy.nodes.values()].filter(
@@ -367,7 +367,7 @@ test("repository-wrapper groups omit provenance, since they match no region", ()
   assert.equal(repository.regionId, undefined);
 });
 
-test("a size-partitioned region yields distinct ordinals per slice", () => {
+test("a size-partitioned region yields distinct ordinals per slice", async () => {
   // 6 files in one package with maxGroupSize 2 forces several slices.
   const nodes = Array.from({ length: 6 }, (_, i) => ({
     id: `file:p/F${i}.java`,
@@ -375,7 +375,7 @@ test("a size-partitioned region yields distinct ordinals per slice", () => {
     packagePath: "p",
     directoryPath: "p",
   }));
-  const result = groupGraph({ nodes, edges: [] }, { hierarchy: { maxGroupSize: 2 } });
+  const result = await groupGraph({ nodes, edges: [] }, { hierarchy: { maxGroupSize: 2 } });
   assert.ok(result.ok);
 
   const groups = groupsByRegion(result.value.hierarchy).get("pkg:p");
@@ -387,8 +387,8 @@ test("a size-partitioned region yields distinct ordinals per slice", () => {
 // Feature: hierarchical-repository-grouping, Property 43: Group provenance is complete and unambiguous
 test("Property 43: (regionId, ordinal) is unique and every regionId is a recorded decision", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph({ maxFiles: 8, maxEdges: 12 }), (graph) => {
-      const result = groupGraph(graph);
+    fc.asyncProperty(arbitraryDependencyGraph({ maxFiles: 8, maxEdges: 12 }), async (graph) => {
+      const result = await groupGraph(graph);
       assert.ok(result.ok);
       const { hierarchy, metadata } = result.value;
 

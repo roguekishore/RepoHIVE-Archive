@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import type { RawDependencyGraph } from "@repohive/shared";
@@ -15,9 +15,9 @@ function weightedModelOf(graph: RawDependencyGraph) {
 }
 
 // Feature: hierarchical-repository-grouping, Property 9: Structural_Quality_Score is always in range and finite
-test("Property 9: every region score is finite and in [0, 1]; degenerate regions get the configured degenerate score (R3.6, R3.8, R3.9)", () => {
+test("Property 9: every region score is finite and in [0, 1]; degenerate regions get the configured degenerate score (R3.6, R3.8, R3.9)", async () => {
   fc.assert(
-    fc.property(
+    fc.asyncProperty(
       fc.record({
         graph: arbitraryDependencyGraph(),
         cohesionWeight: fc.double({ min: 0.01, max: 5, noNaN: true }),
@@ -26,9 +26,9 @@ test("Property 9: every region score is finite and in [0, 1]; degenerate regions
         computeModularity: fc.boolean(),
         squashConstant: fc.double({ min: 0.1, max: 5, noNaN: true }),
       }),
-      ({ graph, cohesionWeight, couplingWeight, modularityWeight, computeModularity, squashConstant }) => {
+      async ({ graph, cohesionWeight, couplingWeight, modularityWeight, computeModularity, squashConstant }) => {
         const weighted = weightedModelOf(graph);
-        // Weights need not sum to 1 — the assessor renormalizes the active set.
+        // Weights need not sum to 1 â€” the assessor renormalizes the active set.
         const assessment = assess(weighted, {
           weights: { cohesion: cohesionWeight, coupling: couplingWeight, modularity: modularityWeight },
           computeModularity,
@@ -55,7 +55,7 @@ test("Property 9: every region score is finite and in [0, 1]; degenerate regions
 // Feature: hierarchical-repository-grouping, Property 10: Cohesion and Coupling match their reference definitions
 test("Property 10: cohesion and coupling equal an independent reference computation (R3.3, R3.4)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
       const weighted = weightedModelOf(graph);
       const assessment = assess(weighted, DEFAULT_ASSESSMENT_CONFIG);
 
@@ -125,9 +125,9 @@ test("Property 10: cohesion and coupling equal an independent reference computat
 });
 
 // Feature: hierarchical-repository-grouping, Property 11: Structural-quality assessment is deterministic
-test("Property 11: assessing the same weighted model twice yields identical metrics (R3.10)", () => {
+test("Property 11: assessing the same weighted model twice yields identical metrics (R3.10)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
       const weighted = weightedModelOf(graph);
       // Default weights already include modularity; turn its computation on.
       const config = { ...DEFAULT_ASSESSMENT_CONFIG, computeModularity: true };
@@ -150,8 +150,8 @@ test("Property 11: assessing the same weighted model twice yields identical metr
 });
 
 /**
- * Two packages of two files each; strength-1 edges A1→A2 and B1→B2 inside the
- * packages and A1→B1 across them (default coefficients make each strength 1).
+ * Two packages of two files each; strength-1 edges A1â†’A2 and B1â†’B2 inside the
+ * packages and A1â†’B1 across them (default coefficients make each strength 1).
  */
 function twoPackageGraph(): { graph: RawDependencyGraph; fileIds: string[] } {
   const a1 = "file:src/a/A1.java";
@@ -175,14 +175,14 @@ function twoPackageGraph(): { graph: RawDependencyGraph; fileIds: string[] } {
   return { graph, fileIds: [a1, a2, b1, b2] };
 }
 
-test("R3.5: partition modularity equals the hand-computed Newman Q of the two-package graph", () => {
+test("R3.5: partition modularity equals the hand-computed Newman Q of the two-package graph", async () => {
   const { graph, fileIds } = twoPackageGraph();
   const [a1, a2, b1, b2] = fileIds as [string, string, string, string];
   const weighted = weightedModelOf(graph);
   const assessment = assess(weighted, { ...DEFAULT_ASSESSMENT_CONFIG, computeModularity: true });
 
   // Newman Q from first principles on the undirected weighted projection:
-  // Q = Σ_c [ intraWeight(c)/m − (degreeSum(c)/(2m))² ].
+  // Q = Î£_c [ intraWeight(c)/m âˆ’ (degreeSum(c)/(2m))Â² ].
   const community: Record<string, string> = { [a1]: "A", [a2]: "A", [b1]: "B", [b2]: "B" };
   const undirectedEdges: Array<[string, string, number]> = [
     [a1, a2, 1],
@@ -209,7 +209,7 @@ test("R3.5: partition modularity equals the hand-computed Newman Q of the two-pa
     expectedQ += (intraWeight.get(c) ?? 0) / m - ((degreeSum.get(c) ?? 0) / (2 * m)) ** 2;
   }
   // Derivation sanity: m=3, each community has intra 1 and degree sum 3, so
-  // Q = 2·(1/3 − (3/6)²) = 1/6.
+  // Q = 2Â·(1/3 âˆ’ (3/6)Â²) = 1/6.
   assert.ok(Math.abs(expectedQ - 1 / 6) < 1e-12, "hand computation must yield Q = 1/6");
 
   assert.equal(assessment.regions.length, 2);
@@ -223,7 +223,7 @@ test("R3.5: partition modularity equals the hand-computed Newman Q of the two-pa
   }
 });
 
-test("R3.7: metricWeights echoes the configured weights (modularity dropped when not computed) and the squash constant", () => {
+test("R3.7: metricWeights echoes the configured weights (modularity dropped when not computed) and the squash constant", async () => {
   const weighted = weightedModelOf(twoPackageGraph().graph);
   const weights = { cohesion: 0.5, coupling: 0.3, modularity: 0.2 };
 
@@ -248,7 +248,7 @@ test("R3.7: metricWeights echoes the configured weights (modularity dropped when
 });
 
 test("both degenerate arms of R3.9 get the documented neutral score, independently of the implementation's flag", () => {
-  // Arm 1: an edgeless MULTI-file region (2 nodes, 0 internal edges) — the
+  // Arm 1: an edgeless MULTI-file region (2 nodes, 0 internal edges) â€” the
   // arm a wrong predicate (e.g. only checking node count) would miss. The
   // region's files each have a crossing edge so metrics are otherwise nonzero.
   const graph: RawDependencyGraph = {
@@ -263,20 +263,20 @@ test("both degenerate arms of R3.9 get the documented neutral score, independent
       // com.empty: no intra edges, only crossing ones.
       { source: "file:src/com/empty/E1.java", target: "file:src/com/full/F1.java", importFrequency: 3, methodCallFrequency: 0, sharedTypeCount: 0 },
       { source: "file:src/com/empty/E2.java", target: "file:src/com/full/F2.java", importFrequency: 3, methodCallFrequency: 0, sharedTypeCount: 0 },
-      // com.full: a real intra edge → NOT degenerate.
+      // com.full: a real intra edge â†’ NOT degenerate.
       { source: "file:src/com/full/F1.java", target: "file:src/com/full/F2.java", importFrequency: 5, methodCallFrequency: 0, sharedTypeCount: 0 },
     ],
   };
   const assessment = assess(weightedModelOf(graph));
   const byId = new Map(assessment.regions.map((r) => [r.regionId, r]));
 
-  // Edgeless two-file region → degenerate score 0.0 (default), NOT
+  // Edgeless two-file region â†’ degenerate score 0.0 (default), NOT
   // combineScore(0, 0) which would be 0.5 under default weights.
   const empty = byId.get("pkg:com.empty");
   assert.ok(empty !== undefined);
   assert.equal(empty.score, 0.0);
 
-  // Arm 2: the singleton region (<2 nodes) → same neutral score.
+  // Arm 2: the singleton region (<2 nodes) â†’ same neutral score.
   const lone = byId.get("pkg:com.lone");
   assert.ok(lone !== undefined);
   assert.equal(lone.score, 0.0);
@@ -288,7 +288,7 @@ test("both degenerate arms of R3.9 get the documented neutral score, independent
 });
 
 test("modularity over an all-zero-strength projection is treated as not computed, never NaN (design 3.6 numeric safety)", () => {
-  // One inter-file edge whose signals are all zero → strength 0 → the
+  // One inter-file edge whose signals are all zero â†’ strength 0 â†’ the
   // weighted projection has zero total weight, where Newman Q would be NaN.
   const graph: RawDependencyGraph = {
     nodes: [
@@ -313,7 +313,7 @@ test("modularity over an all-zero-strength projection is treated as not computed
     assert.ok(Number.isFinite(region.score));
   }
   // With modularity dropped, the score must equal the not-computed path
-  // (weights renormalized identically) — no silent worst-case bias.
+  // (weights renormalized identically) â€” no silent worst-case bias.
   assert.deepEqual(
     withModularity.regions.map((r) => r.score),
     withoutModularity.regions.map((r) => r.score)
@@ -322,10 +322,10 @@ test("modularity over an all-zero-strength projection is treated as not computed
 
 // Feature: hierarchical-repository-grouping, Property 9 (extension): a region
 // whose intra-region edges all carry zero strength is degenerate (Gap 16 fix)
-test("zero-strength intra edges make a region degenerate and yield the configured degenerate score", () => {
+test("zero-strength intra edges make a region degenerate and yield the configured degenerate score", async () => {
   // Three files in one package, two intra-region edges both carrying zero
   // strength (all signals 0).  Without the strength-aware guard the region
-  // would score combineScore(0, 0) = 0.5 — not the documented neutral score.
+  // would score combineScore(0, 0) = 0.5 â€” not the documented neutral score.
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:src/com/zs/A.java", kind: "file", packagePath: "com.zs", directoryPath: "src/com/zs" },
@@ -346,7 +346,7 @@ test("zero-strength intra edges make a region degenerate and yield the configure
 });
 
 // Regression: a mix of zero and non-zero intra strengths is NOT degenerate
-test("a region with at least one non-zero intra-strength edge is not degenerate", () => {
+test("a region with at least one non-zero intra-strength edge is not degenerate", async () => {
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:src/com/mixed/X.java", kind: "file", packagePath: "com.mixed", directoryPath: "src/com/mixed" },
@@ -368,7 +368,7 @@ test("a region with at least one non-zero intra-strength edge is not degenerate"
 });
 
 // Feature: hierarchical-repository-grouping, Property 9 (extension): a
-// zero-strength region with default boundary must reconstruct — and produce
+// zero-strength region with default boundary must reconstruct â€” and produce
 // exactly ONE group rather than one singleton per file (Gap 16 regression).
 test("reconstructing a zero-strength region yields one group, not one singleton per file", async () => {
   // Six files, five zero-strength intra edges.  Before the fix this produced
@@ -405,7 +405,7 @@ test("reconstructing a zero-strength region yields one group, not one singleton 
   assert.ok(region.degenerate, "all-zero-strength region must be degenerate");
 
   // Force reconstruct with boundary 0.6 (above degenerate score 0)
-  const result = construct(
+  const result = await construct(
     weighted, assessment,
     { structuralQualityBoundary: 0.6, communityDetectionSeed: 42 },
     new LouvainCommunityDetector()

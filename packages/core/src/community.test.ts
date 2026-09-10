@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import { LouvainCommunityDetector, relabelByContent, seededRng } from "./community.js";
 import type { CommunitySubgraph } from "./community.js";
@@ -9,7 +9,7 @@ import { ingest } from "./ingestor.js";
 import type { RawDependencyGraph } from "@repohive/shared";
 
 /**
- * Two dense clusters joined by one weak bridge — the canonical case community
+ * Two dense clusters joined by one weak bridge â€” the canonical case community
  * detection MUST split. Cluster 1 = {c1a, c1b, c1c}, cluster 2 = {c2a, c2b,
  * c2c}, all intra-cluster edges strength 10, one bridge edge strength 1.
  */
@@ -29,7 +29,7 @@ function twoClusterSubgraph(): CommunitySubgraph {
   };
 }
 
-test("LouvainCommunityDetector splits two dense clusters across a weak bridge", () => {
+test("LouvainCommunityDetector splits two dense clusters across a weak bridge", async () => {
   const detector = new LouvainCommunityDetector();
   const { communityOf } = detector.detect(twoClusterSubgraph(), 42);
 
@@ -64,21 +64,21 @@ test("detector output is identical across runs, seeds kept, and edge input order
   assert.deepEqual([...reversed.communityOf].sort(), [...first.communityOf].sort());
 });
 
-test("degenerate subgraphs collapse to a single community (documented Phase-1 rule)", () => {
+test("degenerate subgraphs collapse to a single community (documented Phase-1 rule)", async () => {
   const detector = new LouvainCommunityDetector();
 
-  // No edges → no dependency signal to rebuild from → one community.
+  // No edges â†’ no dependency signal to rebuild from â†’ one community.
   const edgeless = detector.detect({ nodeIds: ["x", "y", "z"], edges: [] }, 7);
   assert.deepEqual([...new Set(edgeless.communityOf.values())], [0]);
 
-  // Fewer than two nodes → trivially one community.
+  // Fewer than two nodes â†’ trivially one community.
   const singleton = detector.detect({ nodeIds: ["only"], edges: [] }, 7);
   assert.deepEqual([...singleton.communityOf], [["only", 0]]);
 });
 
-test("relabelByContent numbers communities by ascending minimum member id", () => {
+test("relabelByContent numbers communities by ascending minimum member id", async () => {
   const relabeled = relabelByContent(["a", "b", "c", "d"], { a: 7, b: 3, c: 7, d: 3 });
-  // Community {a, c} contains the global minimum "a" → label 0; {b, d} → 1.
+  // Community {a, c} contains the global minimum "a" â†’ label 0; {b, d} â†’ 1.
   assert.deepEqual(
     [...relabeled].sort(),
     [
@@ -104,7 +104,7 @@ test("seededRng is deterministic per seed and produces values in [0, 1)", () => 
   }
 });
 
-test("Reconstruct_Action actually rebuilds groups from communities (R4.3, non-vacuous)", () => {
+test("Reconstruct_Action actually rebuilds groups from communities (R4.3, non-vacuous)", async () => {
   // One package containing the two-cluster shape: forcing reconstruct must
   // split the region into the two dense file groups, not echo it back.
   const pkg = "com.tangle";
@@ -140,7 +140,7 @@ test("Reconstruct_Action actually rebuilds groups from communities (R4.3, non-va
   assert.ok(ingested.ok);
   const weighted = computeWeights(ingested.value);
   const assessment = assess(weighted);
-  const result = construct(
+  const result = await construct(
     weighted,
     assessment,
     {
@@ -162,7 +162,7 @@ test("Reconstruct_Action actually rebuilds groups from communities (R4.3, non-va
 });
 
 // Feature: hierarchical-repository-grouping (Gap 16 extension)
-test("zero-total-weight subgraph collapses to a single community", () => {
+test("zero-total-weight subgraph collapses to a single community", async () => {
   const detector = new LouvainCommunityDetector();
 
   // Six nodes, five edges each with strength 0.  Before the fix Louvain's
@@ -185,8 +185,8 @@ test("zero-total-weight subgraph collapses to a single community", () => {
   assert.equal(labels.has(0), true, "the single community label must be 0");
 });
 
-// Mixed: some zero, some non-zero edges — must NOT collapse to a single community
-test("a subgraph with at least one positive-weight edge is not collapsed", () => {
+// Mixed: some zero, some non-zero edges â€” must NOT collapse to a single community
+test("a subgraph with at least one positive-weight edge is not collapsed", async () => {
   const detector = new LouvainCommunityDetector();
 
   // Two clusters connected by one real edge among zero-weight background edges.

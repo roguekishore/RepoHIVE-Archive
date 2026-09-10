@@ -222,7 +222,7 @@ const consoleIo: CliIo = {
 };
 
 /** Run the grouping CLI. Returns the process exit code. */
-export function main(argv: readonly string[], io: CliIo = consoleIo): number {
+export async function main(argv: readonly string[], io: CliIo = consoleIo): Promise<number> {
   const parsed = parseGroupArgs(argv);
   if (!parsed.ok) {
     io.error(`group: ${parsed.message}`);
@@ -258,7 +258,7 @@ export function main(argv: readonly string[], io: CliIo = consoleIo): number {
     return 1;
   }
 
-  const result = groupGraphToIndex(graph.value, outDir, parsed.value.config);
+  const result = await groupGraphToIndex(graph.value, outDir, parsed.value.config);
   if (!result.ok) {
     io.error(`group: ${describeError(result.error)}`);
     return 1;
@@ -282,5 +282,5 @@ export function main(argv: readonly string[], io: CliIo = consoleIo): number {
 
 // Executed only when run as a script, not when imported by a test.
 if (process.argv[1]?.endsWith("group-cli.js")) {
-  process.exitCode = main(process.argv.slice(2));
+  main(process.argv.slice(2)).then((code) => { process.exitCode = code; });
 }

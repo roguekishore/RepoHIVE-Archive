@@ -51,23 +51,23 @@ function tempProject(fileName = "graph.json"): { dir: string; graphPath: string;
 
 // --- Argument parsing ------------------------------------------------------
 
-test("no arguments is a usage error, not a default run", () => {
+test("no arguments is a usage error, not a default run", async () => {
   const { io, errs } = captureIo();
-  assert.equal(main([], io), 2);
+  assert.equal(await main([], io), 2);
   assert.ok(errs.some((line) => line.includes("input path is required")));
   assert.ok(errs.some((line) => line.includes("usage:")));
 });
 
-test("--help prints usage and exits zero", () => {
+test("--help prints usage and exits zero", async () => {
   const { io, out } = captureIo();
-  assert.equal(main(["--help"], io), 0);
+  assert.equal(await main(["--help"], io), 0);
   assert.ok(out.some((line) => line.includes("--boundary")));
 });
 
-test("unknown flags and extra positionals are rejected", () => {
+test("unknown flags and extra positionals are rejected", async () => {
   for (const argv of [["in", "--bogus"], ["in", "-x"], ["a", "b", "c"]]) {
     const { io, errs } = captureIo();
-    assert.equal(main(argv, io), 2, argv.join(" "));
+    assert.equal(await main(argv, io), 2, argv.join(" "));
     assert.ok(errs.length > 0);
   }
 
@@ -156,35 +156,31 @@ test("conflicting overrides for one region are rejected", () => {
 
 // --- End-to-end behaviour --------------------------------------------------
 
-test("the boundary flag actually changes the decisions — Req 4.4 without code changes", () => {
+test("the boundary flag actually changes the decisions — Req 4.4 without code changes", async () => {
   const project = tempProject();
   try {
-    const runAt = (boundary: string): string[] => {
+    const runAt = async (boundary: string): Promise<string[]> => {
       const outDir = join(project.dir, `index-${boundary}`);
       const { io, out } = captureIo();
-      assert.equal(main([project.graphPath, outDir, "--boundary", boundary], io), 0);
+      assert.equal(await main([project.graphPath, outDir, "--boundary", boundary], io), 0);
       const parsed = parseIndex(outDir);
       assert.ok(parsed.ok);
       return parsed.value.metadata.regionDecisions.map((d) => d.action);
     };
 
-    // Boundary 0 preserves everywhere; a boundary above every score
-    // reconstructs everywhere. Same input, different hierarchies, no code edit.
-    assert.ok(runAt("0").every((action) => action === "preserve"));
-    assert.ok(runAt("1.000001").every((action) => action === "reconstruct"));
+    assert.ok((await runAt("0")).every((action) => action === "preserve"));
+    assert.ok((await runAt("1.000001")).every((action) => action === "reconstruct"));
   } finally {
     project.cleanup();
   }
 });
 
-test("an invalid parameter is rejected through validateConfig and writes nothing", () => {
+test("an invalid parameter is rejected through validateConfig and writes nothing", async () => {
   const project = tempProject();
   try {
     const outDir = join(project.dir, "index");
     const { io, errs } = captureIo();
-    // Legal as a number, illegal as a config value — the CLI must not become a
-    // second injection route for what Gap 9's gate rejects.
-    assert.equal(main([project.graphPath, outDir, "--squash-k", "0"], io), 1);
+    assert.equal(await main([project.graphPath, outDir, "--squash-k", "0"], io), 1);
     assert.ok(errs.some((line) => line.includes("cohesionSquashConstant")));
     assert.ok(!readdirSync(project.dir).includes("index"));
   } finally {
@@ -192,11 +188,11 @@ test("an invalid parameter is rejected through validateConfig and writes nothing
   }
 });
 
-test("a directory without graph.json reports not-found, not malformed", () => {
+test("a directory without graph.json reports not-found, not malformed", async () => {
   const dir = mkdtempSync(join(tmpdir(), "repohive-cli-empty-"));
   try {
     const { io, errs } = captureIo();
-    assert.equal(main([dir], io), 1);
+    assert.equal(await main([dir], io), 1);
     const message = errs.join("\n");
     assert.ok(message.includes("not found"), message);
     assert.ok(!message.includes("malformed"), "a missing file is not a malformed one");
@@ -205,12 +201,11 @@ test("a directory without graph.json reports not-found, not malformed", () => {
   }
 });
 
-test("an input file not ending in .json still gets a sibling index directory", () => {
+test("an input file not ending in .json still gets a sibling index directory", async () => {
   const project = tempProject("dependency-graph");
   try {
     const { io, out } = captureIo();
-    assert.equal(main([project.graphPath], io), 0);
-    // Derived from the file's directory, so never a path *under* the file.
+    assert.equal(await main([project.graphPath], io), 0);
     assert.ok(out.some((line) => line.includes(join(project.dir, "index"))));
     assert.ok(parseIndex(join(project.dir, "index")).ok);
   } finally {
@@ -218,8 +213,8 @@ test("an input file not ending in .json still gets a sibling index directory", (
   }
 });
 
-test("a nonexistent input path exits 2 without touching the filesystem", () => {
+test("a nonexistent input path exits 2 without touching the filesystem", async () => {
   const { io, errs } = captureIo();
-  assert.equal(main([join(tmpdir(), "repohive-does-not-exist-at-all")], io), 2);
+  assert.equal(await main([join(tmpdir(), "repohive-does-not-exist-at-all")], io), 2);
   assert.ok(errs.some((line) => line.includes("path not found")));
 });

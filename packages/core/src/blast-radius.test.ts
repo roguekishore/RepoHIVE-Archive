@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import type { NodeId, RawDependencyGraph } from "@repohive/shared";
@@ -7,15 +7,15 @@ import { groupGraph } from "./orchestrator.js";
 import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
 import type { Hierarchy, HierarchyNode } from "./types.js";
 
-function hierarchyOf(graph: RawDependencyGraph): Hierarchy {
-  const result = groupGraph(graph);
+async function hierarchyOf(graph: RawDependencyGraph): Promise<Hierarchy> {
+  const result = await groupGraph(graph);
   assert.ok(result.ok, "valid graph must group");
   return result.value.hierarchy;
 }
 
 /**
  * Independent recompute of the impact set: fixed-point iteration over the
- * reversed leaf edges — the target plus every node with a dependency path
+ * reversed leaf edges â€” the target plus every node with a dependency path
  * reaching it, each node added at most once.
  */
 function expectedImpactSet(hierarchy: Hierarchy, target: string): Set<string> {
@@ -52,8 +52,8 @@ function expectedGroupAncestors(hierarchy: Hierarchy, impacted: Set<string>): st
 // Feature: hierarchical-repository-grouping, Property 32: Blast radius equals the reverse-reachable set, with containing groups
 test("Property 32: blast radius equals the reverse-reachable set, with containing groups (R10.1, R10.2, R10.5, R10.6)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), fc.nat(1000), (graph, pick) => {
-      const hierarchy = hierarchyOf(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), fc.nat(1000), async (graph, pick) => {
+      const hierarchy = await hierarchyOf(graph);
 
       // Prefer leaf-edge endpoints (interesting traversals); fall back to any
       // hierarchy node when the graph has no edges.
@@ -80,8 +80,8 @@ test("Property 32: blast radius equals the reverse-reachable set, with containin
 // Feature: hierarchical-repository-grouping, Property 33: Blast radius traversal terminates and is deterministic
 test("Property 33: blast radius traversal terminates and is deterministic (R10.7, R10.8)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), fc.nat(1000), (graph, pick) => {
-      const hierarchy = hierarchyOf(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), fc.nat(1000), async (graph, pick) => {
+      const hierarchy = await hierarchyOf(graph);
       const candidates = [...hierarchy.nodes.keys()].sort();
       const target = candidates[pick % candidates.length]!;
 
@@ -108,7 +108,7 @@ const CYCLE_A = "file:src/com/cycle/A.java";
 const CYCLE_B = "file:src/com/cycle/B.java";
 const CYCLE_C = "file:src/com/cycle/C.java";
 
-/** Explicit 3-cycle A → B → C → A of files in one package (R10.7). */
+/** Explicit 3-cycle A â†’ B â†’ C â†’ A of files in one package (R10.7). */
 const threeCycleGraph: RawDependencyGraph = {
   nodes: [
     { id: CYCLE_A, kind: "file", packagePath: "com.cycle", directoryPath: CYCLE_DIRECTORY },
@@ -122,8 +122,8 @@ const threeCycleGraph: RawDependencyGraph = {
   ],
 };
 
-test("an explicit 3-cycle terminates with each node included exactly once (R10.7, R10.8)", () => {
-  const hierarchy = hierarchyOf(threeCycleGraph);
+test("an explicit 3-cycle terminates with each node included exactly once (R10.7, R10.8)", async () => {
+  const hierarchy = await hierarchyOf(threeCycleGraph);
   const allThree = [CYCLE_A, CYCLE_B, CYCLE_C].sort();
 
   for (const target of [CYCLE_A, CYCLE_B, CYCLE_C]) {
@@ -139,8 +139,8 @@ test("an explicit 3-cycle terminates with each node included exactly once (R10.7
   }
 });
 
-test("empty, null, and undefined node ids are rejected with EMPTY_NODE_ID (R10.4)", () => {
-  const hierarchy = hierarchyOf(threeCycleGraph);
+test("empty, null, and undefined node ids are rejected with EMPTY_NODE_ID (R10.4)", async () => {
+  const hierarchy = await hierarchyOf(threeCycleGraph);
   for (const input of ["", null, undefined]) {
     const result = analyzeBlastRadius(hierarchy, input);
     assert.ok(!result.ok, "empty node id must be rejected");
@@ -148,8 +148,8 @@ test("empty, null, and undefined node ids are rejected with EMPTY_NODE_ID (R10.4
   }
 });
 
-test("an unknown id is rejected with NODE_NOT_FOUND naming it, hierarchy unchanged (R10.3)", () => {
-  const hierarchy = hierarchyOf(threeCycleGraph);
+test("an unknown id is rejected with NODE_NOT_FOUND naming it, hierarchy unchanged (R10.3)", async () => {
+  const hierarchy = await hierarchyOf(threeCycleGraph);
   const nodeCountBefore = hierarchy.nodes.size;
 
   const ghostId = "file:src/com/cycle/Ghost.java";
@@ -165,8 +165,8 @@ test("an unknown id is rejected with NODE_NOT_FOUND naming it, hierarchy unchang
 //
 // The dependency traversal always had a visited set; the containment climb did
 // not, because a Hierarchy was assumed to be a tree. analyzeBlastRadius is
-// public API over a plain Hierarchy value, so a caller — or a future
-// incremental path that patches a hierarchy in memory — can hand it a cycle.
+// public API over a plain Hierarchy value, so a caller â€” or a future
+// incremental path that patches a hierarchy in memory â€” can hand it a cycle.
 
 /** A Hierarchy whose parentId links form a cycle. parseIndex would reject it. */
 function cyclicHierarchy(): Hierarchy {
@@ -188,7 +188,7 @@ function cyclicHierarchy(): Hierarchy {
   };
 }
 
-test("a containment cycle terminates the climb instead of hanging (R10.7)", () => {
+test("a containment cycle terminates the climb instead of hanging (R10.7)", async () => {
   const hierarchy = cyclicHierarchy();
 
   // Completion is the assertion. Relying on the runner's timeout would let a
@@ -201,12 +201,12 @@ test("a containment cycle terminates the climb instead of hanging (R10.7)", () =
   assert.ok(second.ok);
   assert.deepEqual(second.value, first.value);
 
-  // The groups on the cycle are still reported — the guard stops the loop, it
+  // The groups on the cycle are still reported â€” the guard stops the loop, it
   // does not truncate the answer.
   assert.deepEqual(first.value.groupNodes, ["g_a", "g_b"]);
 });
 
-test("a self-parenting node terminates the climb", () => {
+test("a self-parenting node terminates the climb", async () => {
   const nodes = new Map<NodeId, HierarchyNode>([
     ["g_self", { id: "g_self", kind: "group", level: 1, parentId: "g_self", childIds: [] }],
   ]);

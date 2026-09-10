@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   existsSync,
@@ -26,8 +26,8 @@ import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
 import type { Metadata } from "./types.js";
 
 /** Run the full pipeline; generated graphs are always valid so this must succeed. */
-function runPipeline(graph: RawDependencyGraph): GroupingOutput {
-  const result = groupGraph(graph);
+async function runPipeline(graph: RawDependencyGraph): Promise<GroupingOutput> {
+  const result = await groupGraph(graph);
   assert.ok(result.ok, "pipeline must succeed on a valid generated graph");
   return result.value;
 }
@@ -70,8 +70,8 @@ const FIXED_GRAPH: RawDependencyGraph = {
 // Feature: hierarchical-repository-grouping, Property 29: Serialization writes a complete, count-consistent index file set
 test("Property 29: serialization writes a complete, count-consistent index file set (R9.1-9.4, R11.3, R11.4)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const { hierarchy, metadata } = runPipeline(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const { hierarchy, metadata } = await runPipeline(graph);
       const dir = freshIndexDir();
       try {
         const written = serializeIndex(hierarchy, metadata, dir);
@@ -151,10 +151,10 @@ test("Property 29: serialization writes a complete, count-consistent index file 
 });
 
 // Feature: hierarchical-repository-grouping, Property 30: Serialize-then-parse round-trip preserves the hierarchy
-test("Property 30: serialize-then-parse round-trip preserves the hierarchy (R9.5)", () => {
+test("Property 30: serialize-then-parse round-trip preserves the hierarchy (R9.5)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const { hierarchy, metadata } = runPipeline(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const { hierarchy, metadata } = await runPipeline(graph);
       const dir = freshIndexDir();
       try {
         const written = serializeIndex(hierarchy, metadata, dir);
@@ -164,7 +164,7 @@ test("Property 30: serialize-then-parse round-trip preserves the hierarchy (R9.5
         assert.ok(parsed.ok, "a freshly serialized index must parse");
         const roundTripped = parsed.value;
 
-        // Full structural fidelity: every HierarchyNode record survives —
+        // Full structural fidelity: every HierarchyNode record survives â€”
         // kind, level, parentId, and childIds ordering included.
         assert.deepEqual(
           new Set(roundTripped.hierarchy.nodes.keys()),
@@ -221,13 +221,13 @@ test("Property 30: serialize-then-parse round-trip preserves the hierarchy (R9.5
 });
 
 // Feature: hierarchical-repository-grouping, Property 31: Parsing reports all missing member files atomically
-test("Property 31: parsing reports all missing member files atomically (R9.6)", () => {
+test("Property 31: parsing reports all missing member files atomically (R9.6)", async () => {
   fc.assert(
-    fc.property(
+    fc.asyncProperty(
       arbitraryDependencyGraph(),
       fc.subarray(INDEX_FILE_NAMES as unknown as string[], { minLength: 1 }),
-      (graph, deleted) => {
-        const { hierarchy, metadata } = runPipeline(graph);
+      async (graph, deleted) => {
+        const { hierarchy, metadata } = await runPipeline(graph);
         const dir = freshIndexDir();
         try {
           const written = serializeIndex(hierarchy, metadata, dir);
@@ -250,8 +250,8 @@ test("Property 31: parsing reports all missing member files atomically (R9.6)", 
   );
 });
 
-test("invalid JSON in metadata.json is reported as MALFORMED_FILE naming the file (R9.7)", () => {
-  const { hierarchy, metadata } = runPipeline(FIXED_GRAPH);
+test("invalid JSON in metadata.json is reported as MALFORMED_FILE naming the file (R9.7)", async () => {
+  const { hierarchy, metadata } = await runPipeline(FIXED_GRAPH);
   const dir = freshIndexDir();
   try {
     const written = serializeIndex(hierarchy, metadata, dir);
@@ -267,8 +267,8 @@ test("invalid JSON in metadata.json is reported as MALFORMED_FILE naming the fil
   }
 });
 
-test("hierarchy.json missing its nodes field is reported as MALFORMED_FILE naming the file (R9.7)", () => {
-  const { hierarchy, metadata } = runPipeline(FIXED_GRAPH);
+test("hierarchy.json missing its nodes field is reported as MALFORMED_FILE naming the file (R9.7)", async () => {
+  const { hierarchy, metadata } = await runPipeline(FIXED_GRAPH);
   const dir = freshIndexDir();
   try {
     const written = serializeIndex(hierarchy, metadata, dir);
@@ -285,8 +285,8 @@ test("hierarchy.json missing its nodes field is reported as MALFORMED_FILE namin
   }
 });
 
-test("serializing into a path that is an existing file fails with WRITE_FAILED (R9.8)", () => {
-  const { hierarchy, metadata } = runPipeline(FIXED_GRAPH);
+test("serializing into a path that is an existing file fails with WRITE_FAILED (R9.8)", async () => {
+  const { hierarchy, metadata } = await runPipeline(FIXED_GRAPH);
   const dir = freshIndexDir();
   try {
     const blockingFile = join(dir, "not-a-directory");
@@ -300,7 +300,7 @@ test("serializing into a path that is an existing file fails with WRITE_FAILED (
   }
 });
 
-test("tampered index sets are rejected: wrong-typed fields, ghost references, duplicates, and missing metadata fields (R9.7)", () => {
+test("tampered index sets are rejected: wrong-typed fields, ghost references, duplicates, and missing metadata fields (R9.7)", async () => {
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:src/com/t/T1.java", kind: "file", packagePath: "com.t", directoryPath: "src/com/t" },
@@ -310,7 +310,7 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
       { source: "file:src/com/t/T1.java", target: "file:src/com/t/T2.java", importFrequency: 2, methodCallFrequency: 0, sharedTypeCount: 0 },
     ],
   };
-  const result = groupGraph(graph);
+  const result = await groupGraph(graph);
   assert.ok(result.ok);
 
   /** Serialize fresh, apply a JSON tamper to one file, and parse. */
@@ -338,7 +338,7 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
 
   // Wrong-typed childIds elements.
   expectMalformed(
-    parseTampered("hierarchy.json", (doc) => {
+    parseTampered("hierarchy.json", async (doc) => {
       (doc.nodes as Array<{ childIds: unknown[] }>)[0]!.childIds = [42, { evil: true }];
     }),
     "hierarchy.json"
@@ -346,7 +346,7 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
 
   // Ghost leaf-edge endpoint.
   expectMalformed(
-    parseTampered("edges.json", (doc) => {
+    parseTampered("edges.json", async (doc) => {
       (doc.leafEdges as Array<{ source: string }>)[0]!.source = "ghost:nowhere";
     }),
     "edges.json"
@@ -354,7 +354,7 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
 
   // Duplicate + omitted nodes.json entry (defeats plain count checks).
   expectMalformed(
-    parseTampered("nodes.json", (doc) => {
+    parseTampered("nodes.json", async (doc) => {
       const nodes = doc.nodes as Array<Record<string, unknown>>;
       nodes[1] = { ...nodes[0]! };
     }),
@@ -363,7 +363,7 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
 
   // Missing required metadata scalability fields (R11.4).
   expectMalformed(
-    parseTampered("metadata.json", (doc) => {
+    parseTampered("metadata.json", async (doc) => {
       delete doc.totalCrossGroupEdges;
       delete doc.averageBranchingFactor;
     }),
@@ -372,20 +372,20 @@ test("tampered index sets are rejected: wrong-typed fields, ghost references, du
 
   // Wrong-typed metricWeights.
   expectMalformed(
-    parseTampered("metadata.json", (doc) => {
+    parseTampered("metadata.json", async (doc) => {
       doc.metricWeights = "banana";
     }),
     "metadata.json"
   );
 });
 
-// --- A null array element must not escape as a throw (Fix 2 — Gap 3) -------
+// --- A null array element must not escape as a throw (Fix 2 â€” Gap 3) -------
 //
 // Every validation loop in parseIndex reads `entry.<field>`. JSON.parse happily
 // yields `null` inside an array, so a null element raised a TypeError straight
 // out of parseIndex, escaping the Result model the error taxonomy rests on.
 
-test("a null element in any validated array yields MALFORMED_FILE, never a throw", () => {
+test("a null element in any validated array yields MALFORMED_FILE, never a throw", async () => {
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:a/A.java", kind: "file", packagePath: "a", directoryPath: "a" },
@@ -401,7 +401,7 @@ test("a null element in any validated array yields MALFORMED_FILE, never a throw
       },
     ],
   };
-  const output = runPipeline(graph);
+  const output = await runPipeline(graph);
 
   /** Replace one array's contents with a hostile element list, then parse. */
   const parseWithElement = (
@@ -451,7 +451,7 @@ test("a null element in any validated array yields MALFORMED_FILE, never a throw
 // parent cycle satisfies all of them. parseIndex accepted it, and
 // analyzeBlastRadius's ancestor climb then never terminated.
 
-test("a malformed containment tree is rejected on read, naming hierarchy.json", () => {
+test("a malformed containment tree is rejected on read, naming hierarchy.json", async () => {
   const graph: RawDependencyGraph = {
     nodes: Array.from({ length: 6 }, (_, i) => ({
       id: `file:p${i % 2}/F${i}.java`,
@@ -469,7 +469,7 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
       },
     ],
   };
-  const output = runPipeline(graph);
+  const output = await runPipeline(graph);
 
   type HierarchyDoc = {
     repositoryId: string;
@@ -496,7 +496,7 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
   const cases: ReadonlyArray<readonly [string, (doc: HierarchyDoc) => void]> = [
     [
       "self-parenting node",
-      (doc) => {
+      async (doc) => {
         const g = anyGroup(doc);
         g.parentId = g.id;
         g.childIds = [...new Set([...g.childIds, g.id])].sort();
@@ -504,7 +504,7 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
     ],
     [
       "two-node mutual cycle (the reproduced case)",
-      (doc) => {
+      async (doc) => {
         const root = node(doc, doc.repositoryId);
         const g = anyGroup(doc);
         root.parentId = g.id;
@@ -513,7 +513,7 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
     ],
     [
       "cycle unreachable from the root",
-      (doc) => {
+      async (doc) => {
         doc.nodes.push(
           { id: "z_x", kind: "group", level: 9, parentId: "z_y", childIds: ["z_y"] },
           { id: "z_y", kind: "group", level: 10, parentId: "z_x", childIds: ["z_x"] },
@@ -522,19 +522,19 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
     ],
     [
       "a second root (forest)",
-      (doc) => {
+      async (doc) => {
         doc.nodes.push({ id: "z_orphan", kind: "group", level: 1, parentId: null, childIds: [] });
       },
     ],
     [
       "repositoryId naming an absent node",
-      (doc) => {
+      async (doc) => {
         doc.repositoryId = "r_ghost";
       },
     ],
     [
       "node listed as a child by two parents",
-      (doc) => {
+      async (doc) => {
         const leaf = anyLeaf(doc);
         const g = anyGroup(doc);
         if (!g.childIds.includes(leaf.id)) {
@@ -547,41 +547,41 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
     ],
     [
       "duplicate id inside one childIds",
-      (doc) => {
+      async (doc) => {
         const g = doc.nodes.find((n) => n.childIds.length > 0)!;
         g.childIds = [g.childIds[0]!, g.childIds[0]!];
       },
     ],
     [
       "unsorted childIds",
-      (doc) => {
+      async (doc) => {
         const g = doc.nodes.find((n) => n.childIds.length > 1)!;
         g.childIds = [...g.childIds].reverse();
       },
     ],
     [
       "child level is not parent.level + 1",
-      (doc) => {
+      async (doc) => {
         const g = doc.nodes.find((n) => n.childIds.length > 0)!;
         node(doc, g.childIds[0]!).level = g.level + 5;
       },
     ],
     [
       "unreachable component",
-      (doc) => {
+      async (doc) => {
         doc.nodes.push({ id: "z_lonely", kind: "group", level: 2, parentId: null, childIds: [] });
         doc.nodes.push({ id: "z_lonely2", kind: "group", level: 3, parentId: "z_lonely", childIds: [] });
       },
     ],
     [
       "unknown kind",
-      (doc) => {
+      async (doc) => {
         anyGroup(doc).kind = "banana";
       },
     ],
     [
       "negative level",
-      (doc) => {
+      async (doc) => {
         anyGroup(doc).level = -1;
       },
     ],
@@ -596,12 +596,12 @@ test("a malformed containment tree is rejected on read, naming hierarchy.json", 
   }
 });
 
-test("a fractional or negative hierarchyDepth is rejected", () => {
+test("a fractional or negative hierarchyDepth is rejected", async () => {
   const graph: RawDependencyGraph = {
     nodes: [{ id: "file:A.java", kind: "file", directoryPath: "" }],
     edges: [],
   };
-  const output = runPipeline(graph);
+  const output = await runPipeline(graph);
 
   for (const depth of [1.5, -1]) {
     const dir = mkdtempSync(join(tmpdir(), "repohive-depth-"));
@@ -621,10 +621,10 @@ test("a fractional or negative hierarchyDepth is rejected", () => {
 });
 
 // Feature: hierarchical-repository-grouping, Property 39: The parser accepts every index the serializer writes
-test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)", () => {
+test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const output = runPipeline(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const output = await runPipeline(graph);
       const dir = freshIndexDir();
       try {
         assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
@@ -647,7 +647,7 @@ test("Property 39: parseIndex accepts every index serializeIndex writes (R9.5)",
 // --- The five-file write is all-or-nothing (Gap 10) -----------------------
 //
 // Writing the five files in sequence meant a failure partway through left some
-// new files beside some old ones — and parseIndex accepted the mixture, because
+// new files beside some old ones â€” and parseIndex accepted the mixture, because
 // each file was individually well-formed. Reproduced with a read-only
 // metadata.json: repository/hierarchy/nodes/edges were replaced and metadata
 // was not, so the index described one hierarchy with another's parameters.
@@ -671,7 +671,7 @@ function depsFailingWriteAt(k: number): IndexSerializerDeps {
   };
 }
 
-/** Snapshot every file in `dir` as name → content. */
+/** Snapshot every file in `dir` as name â†’ content. */
 function snapshot(dir: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const name of readdirSync(dir)) {
@@ -696,8 +696,8 @@ const smallGraph: RawDependencyGraph = {
   ],
 };
 
-test("a failure at any staging position leaves a fresh target untouched", () => {
-  const output = runPipeline(smallGraph);
+test("a failure at any staging position leaves a fresh target untouched", async () => {
+  const output = await runPipeline(smallGraph);
 
   for (let k = 1; k <= INDEX_FILE_NAMES.length; k++) {
     const parent = mkdtempSync(join(tmpdir(), "repohive-atomic-"));
@@ -717,10 +717,10 @@ test("a failure at any staging position leaves a fresh target untouched", () => 
   }
 });
 
-test("a failure at any staging position leaves a previous index byte-identical", () => {
-  const first = runPipeline(smallGraph);
+test("a failure at any staging position leaves a previous index byte-identical", async () => {
+  const first = await runPipeline(smallGraph);
   // A second, genuinely different hierarchy, so a partial write would show.
-  const second = runPipeline({
+  const second = await runPipeline({
     nodes: [
       ...smallGraph.nodes,
       { id: "file:q/C.java", kind: "file", packagePath: "q", directoryPath: "q" },
@@ -751,9 +751,9 @@ test("a failure at any staging position leaves a previous index byte-identical",
   }
 });
 
-test("a failure during promotion leaves the previous index intact", () => {
-  const first = runPipeline(smallGraph);
-  const second = runPipeline({
+test("a failure during promotion leaves the previous index intact", async () => {
+  const first = await runPipeline(smallGraph);
+  const second = await runPipeline({
     nodes: [
       ...smallGraph.nodes,
       { id: "file:q/C.java", kind: "file", packagePath: "q", directoryPath: "q" },
@@ -798,8 +798,8 @@ test("a failure during promotion leaves the previous index intact", () => {
   }
 });
 
-test("a read-only member file is detected before the target is touched", () => {
-  const first = runPipeline(smallGraph);
+test("a read-only member file is detected before the target is touched", async () => {
+  const first = await runPipeline(smallGraph);
   const parent = mkdtempSync(join(tmpdir(), "repohive-readonly-"));
   const dir = join(parent, "index");
   try {
@@ -830,13 +830,13 @@ test("a read-only member file is detected before the target is touched", () => {
 });
 
 // Feature: hierarchical-repository-grouping, Property 41: Index writes are all-or-nothing
-test("Property 41: a staging failure at any position leaves the target unchanged (R9.8)", () => {
+test("Property 41: a staging failure at any position leaves the target unchanged (R9.8)", async () => {
   fc.assert(
-    fc.property(
+    fc.asyncProperty(
       arbitraryDependencyGraph({ maxFiles: 5, maxEdges: 8 }),
       fc.integer({ min: 1, max: INDEX_FILE_NAMES.length }),
-      (graph, k) => {
-        const output = runPipeline(graph);
+      async (graph, k) => {
+        const output = await runPipeline(graph);
         const parent = mkdtempSync(join(tmpdir(), "repohive-prop-atomic-"));
         const dir = join(parent, "index");
         try {
@@ -860,8 +860,8 @@ test("Property 41: a staging failure at any position leaves the target unchanged
   );
 });
 
-test("a count mismatch across the file set is rejected — the mixed-index signature", () => {
-  const output = runPipeline(smallGraph);
+test("a count mismatch across the file set is rejected â€” the mixed-index signature", async () => {
+  const output = await runPipeline(smallGraph);
 
   const tamperAndParse = (
     file: string,
@@ -882,12 +882,12 @@ test("a count mismatch across the file set is rejected — the mixed-index signa
   // Each of these is what a half-written index looks like: every file is
   // individually well-formed, but they describe different hierarchies.
   const cases: ReadonlyArray<readonly [string, string, (doc: Record<string, unknown>) => void]> = [
-    ["repository.json", "nodeCount", (doc) => { doc.nodeCount = 99; }],
-    ["repository.json", "edgeCount", (doc) => { doc.edgeCount = 99; }],
-    ["metadata.json", "nodeCount", (doc) => { doc.nodeCount = 99; }],
-    ["metadata.json", "edgeCount", (doc) => { doc.edgeCount = 99; }],
-    ["metadata.json", "hierarchyDepth", (doc) => { doc.hierarchyDepth = 99; }],
-    ["metadata.json", "totalCrossGroupEdges", (doc) => { doc.totalCrossGroupEdges = 99; }],
+    ["repository.json", "nodeCount", async (doc) => { doc.nodeCount = 99; }],
+    ["repository.json", "edgeCount", async (doc) => { doc.edgeCount = 99; }],
+    ["metadata.json", "nodeCount", async (doc) => { doc.nodeCount = 99; }],
+    ["metadata.json", "edgeCount", async (doc) => { doc.edgeCount = 99; }],
+    ["metadata.json", "hierarchyDepth", async (doc) => { doc.hierarchyDepth = 99; }],
+    ["metadata.json", "totalCrossGroupEdges", async (doc) => { doc.totalCrossGroupEdges = 99; }],
   ];
 
   for (const [file, field, mutate] of cases) {
@@ -904,12 +904,12 @@ test("a count mismatch across the file set is rejected — the mixed-index signa
 //
 // metadata.json recorded the boundary, weights, squash constant and decisions,
 // but not maxGroupSize, minPartitionThreshold, the seed, the coefficients or
-// degenerateScore — so a run's hierarchy *shape* could not be reproduced from
+// degenerateScore â€” so a run's hierarchy *shape* could not be reproduced from
 // its own record, though Req 7.1 states determinism "with identical
 // configuration".
 
-test("metadata records the full resolved configuration, and it round-trips", () => {
-  const output = groupGraph(smallGraph, {
+test("metadata records the full resolved configuration, and it round-trips", async () => {
+  const output = await groupGraph(smallGraph, {
     structuralQualityBoundary: 0.42,
     communityDetectionSeed: 99,
     weightCoefficients: { importCoefficient: 2 },
@@ -943,7 +943,7 @@ test("metadata records the full resolved configuration, and it round-trips", () 
     assert.deepEqual(parsed.value.metadata.configuration, configuration);
 
     // The override map is a plain object with sorted keys, so it serializes
-    // deterministically — a Map would have stringified to `{}`.
+    // deterministically â€” a Map would have stringified to `{}`.
     const written = readJson(dir, "metadata.json") as {
       configuration: { overrides: Record<string, string> };
     };
@@ -953,8 +953,8 @@ test("metadata records the full resolved configuration, and it round-trips", () 
   }
 });
 
-test("an index written without the configuration block still parses", () => {
-  const output = runPipeline(smallGraph);
+test("an index written without the configuration block still parses", async () => {
+  const output = await runPipeline(smallGraph);
   const dir = freshIndexDir();
   try {
     assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
@@ -970,8 +970,8 @@ test("an index written without the configuration block still parses", () => {
   }
 });
 
-test("a malformed configuration block is rejected rather than half-read", () => {
-  const output = runPipeline(smallGraph);
+test("a malformed configuration block is rejected rather than half-read", async () => {
+  const output = await runPipeline(smallGraph);
 
   const cases: ReadonlyArray<readonly [string, unknown]> = [
     ["not an object", 42],
@@ -1006,7 +1006,7 @@ test("a malformed configuration block is rejected rather than half-read", () => 
   }
 });
 
-test("recorded metricWeights reflect the weights actually applied (R3.7)", () => {
+test("recorded metricWeights reflect the weights actually applied (R3.7)", async () => {
   // A graph whose only inter-file edges carry zero strength: Q is undefined, so
   // combineScore never applies the modularity weight. Reporting it anyway made
   // the record contradict the run.
@@ -1026,7 +1026,7 @@ test("recorded metricWeights reflect the weights actually applied (R3.7)", () =>
     ],
   };
 
-  const uncomputable = groupGraph(zeroStrength, {
+  const uncomputable = await groupGraph(zeroStrength, {
     assessment: { computeModularity: true, weights: { cohesion: 1, coupling: 1, modularity: 1 } },
   });
   assert.ok(uncomputable.ok);
@@ -1037,7 +1037,7 @@ test("recorded metricWeights reflect the weights actually applied (R3.7)", () =>
   );
 
   // Where Q *is* computable, the weight is reported.
-  const computable = groupGraph(smallGraph, {
+  const computable = await groupGraph(smallGraph, {
     assessment: { computeModularity: true, weights: { cohesion: 1, coupling: 1, modularity: 1 } },
   });
   assert.ok(computable.ok);
@@ -1046,7 +1046,7 @@ test("recorded metricWeights reflect the weights actually applied (R3.7)", () =>
 
 // --- Group provenance survives the round trip (Gap 12) --------------------
 
-test("regionId, ordinal and groupIds survive serialize → parse", () => {
+test("regionId, ordinal and groupIds survive serialize â†’ parse", async () => {
   const graph: RawDependencyGraph = {
     nodes: Array.from({ length: 6 }, (_, i) => ({
       id: `file:p${i % 2}/F${i}.java`,
@@ -1064,7 +1064,7 @@ test("regionId, ordinal and groupIds survive serialize → parse", () => {
       },
     ],
   };
-  const output = runPipeline(graph);
+  const output = await runPipeline(graph);
 
   const dir = freshIndexDir();
   try {
@@ -1084,7 +1084,7 @@ test("regionId, ordinal and groupIds survive serialize → parse", () => {
     }
     assert.ok(checked > 0, "the fixture must exercise groups that carry provenance");
 
-    // The decision → groups direction round-trips too.
+    // The decision â†’ groups direction round-trips too.
     for (const decision of parsed.value.metadata.regionDecisions) {
       const original = output.metadata.regionDecisions.find((d) => d.regionId === decision.regionId)!;
       assert.deepEqual(decision.groupIds, original.groupIds);
@@ -1098,8 +1098,8 @@ test("regionId, ordinal and groupIds survive serialize → parse", () => {
   }
 });
 
-test("an index written without provenance still parses (the fields are optional)", () => {
-  const output = runPipeline(smallGraph);
+test("an index written without provenance still parses (the fields are optional)", async () => {
+  const output = await runPipeline(smallGraph);
   const dir = freshIndexDir();
   try {
     assert.ok(serializeIndex(output.hierarchy, output.metadata, dir).ok);
@@ -1131,8 +1131,8 @@ test("an index written without provenance still parses (the fields are optional)
   }
 });
 
-test("half-present provenance and unknown group ids are rejected", () => {
-  const output = runPipeline(smallGraph);
+test("half-present provenance and unknown group ids are rejected", async () => {
+  const output = await runPipeline(smallGraph);
 
   const tamper = (
     file: string,
@@ -1151,7 +1151,7 @@ test("half-present provenance and unknown group ids are rejected", () => {
   };
 
   // regionId without ordinal: an incomplete recipe is worse than none.
-  const halfPresent = tamper("nodes.json", (doc) => {
+  const halfPresent = tamper("nodes.json", async (doc) => {
     const entry = (doc.nodes as Array<Record<string, unknown>>).find((n) => n.regionId !== undefined)!;
     delete entry.ordinal;
   });
@@ -1159,7 +1159,7 @@ test("half-present provenance and unknown group ids are rejected", () => {
   assert.equal(halfPresent.error.code, "MALFORMED_FILE");
 
   // A decision naming a group that is not in the tree.
-  const ghostGroup = tamper("metadata.json", (doc) => {
+  const ghostGroup = tamper("metadata.json", async (doc) => {
     (doc.regionDecisions as Array<Record<string, unknown>>)[0]!.groupIds = ["g_ghost"];
   });
   assert.ok(!ghostGroup.ok);

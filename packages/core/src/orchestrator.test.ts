@@ -53,9 +53,9 @@ test("resolveConfig never lets an explicitly-undefined option clobber a default"
   assert.deepEqual(resolved, DEFAULT_GROUPING_CONFIG);
 });
 
-test("groupGraph output with explicitly-undefined options equals the default-config output", () => {
-  const withDefaults = groupGraph(graph);
-  const withUndefined = groupGraph(graph, {
+test("groupGraph output with explicitly-undefined options equals the default-config output", async () => {
+  const withDefaults = await groupGraph(graph);
+  const withUndefined = await groupGraph(graph, {
     assessment: { cohesionSquashConstant: undefined },
     hierarchy: { maxGroupSize: undefined },
   });
@@ -95,15 +95,14 @@ const arbitraryHostileGraph = fc.oneof(
 );
 
 // Feature: hierarchical-repository-grouping, Property 38: No exception escapes a public entry point
-test("Property 38: groupGraph returns a Result for hostile input and never throws (R12.1)", () => {
-  fc.assert(
-    fc.property(arbitraryHostileGraph, (input) => {
-      let result: ReturnType<typeof groupGraph> | undefined;
-      assert.doesNotThrow(() => {
-        result = groupGraph(input);
+test("Property 38: groupGraph returns a Result for hostile input and never throws (R12.1)", async () => {
+  await fc.assert(
+    fc.asyncProperty(arbitraryHostileGraph, async (input) => {
+      let result: Awaited<ReturnType<typeof groupGraph>> | undefined;
+      await assert.doesNotReject(async () => {
+        result = await groupGraph(input);
       });
       assert.ok(result !== undefined);
-      // Every rejection is a value carrying a code, never a bare crash.
       if (!result.ok) {
         assert.equal(typeof result.error.code, "string");
       }
@@ -112,7 +111,7 @@ test("Property 38: groupGraph returns a Result for hostile input and never throw
   );
 });
 
-test("a collaborator that throws becomes INTERNAL_ERROR, not a crash", () => {
+test("a collaborator that throws becomes INTERNAL_ERROR, not a crash", async () => {
   const exploding = {
     detect(): never {
       throw new Error("detector exploded");
@@ -134,24 +133,23 @@ test("a collaborator that throws becomes INTERNAL_ERROR, not a crash", () => {
     ],
   };
 
-  let result: ReturnType<typeof groupGraph> | undefined;
-  assert.doesNotThrow(() => {
-    result = groupGraph(graph, { structuralQualityBoundary: 1.000001 }, exploding);
+  let result: Awaited<ReturnType<typeof groupGraph>> | undefined;
+  await assert.doesNotReject(async () => {
+    result = await groupGraph(graph, { structuralQualityBoundary: 1.000001 }, exploding);
   });
   assert.ok(result !== undefined && !result.ok);
   assert.equal(result.error.code, "INTERNAL_ERROR");
   assert.ok("detail" in result.error && result.error.detail.includes("detector exploded"));
 });
 
-test("groupGraphToIndex converts a serializer failure into a value, writing nothing", () => {
+test("groupGraphToIndex converts a serializer failure into a value, writing nothing", async () => {
   const graph = {
     nodes: [{ id: "file:A.java", kind: "file" as const, directoryPath: "" }],
     edges: [],
   };
-  // A path that cannot be a directory: the write fails inside the serializer.
-  let result: ReturnType<typeof groupGraphToIndex> | undefined;
-  assert.doesNotThrow(() => {
-    result = groupGraphToIndex(graph, "\0invalid");
+  let result: Awaited<ReturnType<typeof groupGraphToIndex>> | undefined;
+  await assert.doesNotReject(async () => {
+    result = await groupGraphToIndex(graph, "\0invalid");
   });
   assert.ok(result !== undefined && !result.ok);
   assert.ok(["WRITE_FAILED", "INTERNAL_ERROR"].includes(result.error.code));
@@ -188,7 +186,7 @@ const validGraph: RawDependencyGraph = {
   ],
 };
 
-test("every out-of-domain config field is rejected before ingest, naming the field", () => {
+test("every out-of-domain config field is rejected before ingest, naming the field", async () => {
   const cases: ReadonlyArray<readonly [string, PartialGroupingConfig, string]> = [
     ["NaN boundary", { structuralQualityBoundary: Number.NaN }, "structuralQualityBoundary"],
     ["+Inf boundary", { structuralQualityBoundary: Number.POSITIVE_INFINITY }, "structuralQualityBoundary"],
@@ -241,9 +239,7 @@ test("every out-of-domain config field is rejected before ingest, naming the fie
   ];
 
   for (const [label, partial, expectedField] of cases) {
-    // The forbidden detector proves the gate runs *before* construction, not
-    // merely that a bad config eventually fails somewhere.
-    const result = groupGraph(validGraph, partial, forbiddenDetector);
+    const result = await groupGraph(validGraph, partial, forbiddenDetector);
     assert.ok(!result.ok, `${label} must be rejected`);
     assert.equal(result.error.code, "INVALID_CONFIG", label);
     assert.ok(
@@ -253,27 +249,23 @@ test("every out-of-domain config field is rejected before ingest, naming the fie
   }
 });
 
-test("a boundary outside [0,1] but finite stays legal — the all-reconstruct baseline", () => {
-  // demo-baselines expresses "always reconstruct" as boundary 1.000001. Only
-  // finiteness is required, so that keeps working.
-  const result = groupGraph(validGraph, { structuralQualityBoundary: 1.000001 });
+test("a boundary outside [0,1] but finite stays legal — the all-reconstruct baseline", async () => {
+  const result = await groupGraph(validGraph, { structuralQualityBoundary: 1.000001 });
   assert.ok(result.ok, "a finite out-of-unit boundary must remain legal");
   assert.ok(result.value.metadata.regionDecisions.every((d) => d.action === "reconstruct"));
 
-  const zero = groupGraph(validGraph, { structuralQualityBoundary: 0 });
+  const zero = await groupGraph(validGraph, { structuralQualityBoundary: 0 });
   assert.ok(zero.ok);
 });
 
-test("a NaN boundary writes nothing at all, replacing the mixed-index failure", () => {
+test("a NaN boundary writes nothing at all, replacing the mixed-index failure", async () => {
   const dir = mkdtempSync(join(tmpdir(), "repohive-badconfig-"));
   try {
-    const result = groupGraphToIndex(validGraph, dir, {
+    const result = await groupGraphToIndex(validGraph, dir, {
       structuralQualityBoundary: Number.NaN,
     });
     assert.ok(!result.ok);
     assert.equal(result.error.code, "INVALID_CONFIG");
-    // Previously this wrote an index carrying `null` where NaN had been — one
-    // that the engine's own parseIndex then rejected.
     assert.deepEqual(readdirSync(dir), []);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -294,14 +286,14 @@ test("stableStringify refuses non-finite numbers at any depth", () => {
 });
 
 // Feature: hierarchical-repository-grouping, Property 42: Metadata numerics always round-trip
-test("Property 42: metadata round-trips through serialize and parse for any valid config (R9.5)", () => {
-  fc.assert(
-    fc.property(
+test("Property 42: metadata round-trips through serialize and parse for any valid config (R9.5)", async () => {
+  await fc.assert(
+    fc.asyncProperty(
       arbitraryDependencyGraph({ maxFiles: 5, maxEdges: 8 }),
       fc.double({ min: -2, max: 2, noNaN: true }),
       fc.boolean(),
-      (graph, boundary, computeModularity) => {
-        const output = groupGraph(graph, {
+      async (graph, boundary, computeModularity) => {
+        const output = await groupGraph(graph, {
           structuralQualityBoundary: boundary,
           assessment: { computeModularity },
         });
@@ -312,8 +304,6 @@ test("Property 42: metadata round-trips through serialize and parse for any vali
           assert.ok(serializeIndex(output.value.hierarchy, output.value.metadata, dir).ok);
           const parsed = parseIndex(dir);
           assert.ok(parsed.ok, "metadata must round-trip");
-          // `+ 0` normalizes -0: JSON has no negative zero, so the round trip
-          // legitimately returns 0, and assert.equal follows Object.is.
           assert.equal(parsed.value.metadata.structuralQualityBoundary + 0, boundary + 0);
           assert.equal(
             parsed.value.metadata.regionDecisions.length,

@@ -51,14 +51,14 @@ if (!graph.ok) {
 
 const digests: string[] = [];
 let summary = { nodes: 0, depth: 0, regions: 0 };
+(async () => {
 for (let i = 0; i < runs; i++) {
-  // Re-parse the input each run so no in-memory state can leak between runs.
   const freshGraph = readGraphFile(graphPath);
   if (!freshGraph.ok) {
     console.error(`demo: ${describeError(freshGraph.error)}`);
     process.exit(1);
   }
-  const result = groupGraph(freshGraph.value);
+  const result = await groupGraph(freshGraph.value);
   if (!result.ok) {
     console.error(`demo: ${describeError(result.error)}`);
     process.exit(1);
@@ -94,3 +94,4 @@ console.log(
 if (!verdict.deterministic) {
   process.exit(1);
 }
+})();

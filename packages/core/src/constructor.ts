@@ -17,6 +17,7 @@
 import type { NodeId } from "@repohive/shared";
 import { compareIds } from "./canonical.js";
 import type { CommunityDetector, CommunitySubgraph } from "./community.js";
+import { ConstructWorkerPool } from "./construct-pool.js";
 import { owningFileOf } from "./regions.js";
 import type {
   Action,
@@ -42,7 +43,6 @@ export function construct(
   const regionGroups = new Map<string, RegionGroup[]>();
   const decisions: RegionDecision[] = [];
 
-  // assessment.regions is in canonical Region order already; keep it so.
   for (const region of assessment.regions) {
     const automaticAction = decideAction(region.score, config.structuralQualityBoundary);
     const override = config.overrides?.get(region.regionId);
@@ -71,24 +71,102 @@ export function construct(
 }
 
 /**
- * Reconstruct one Region: run community detection over the Region's File
- * nodes and the strength-weighted edges among them (edges attributed at file
- * granularity), then emit one group per community in content order.
+ * Parallel version of construct: dispatches all Reconstruct regions to a
+ * worker pool concurrently. Preserve regions are handled synchronously.
  */
+export async function constructParallel(
+  model: WeightedModel,
+  assessment: RegionAssessment,
+  config: ConstructionConfig,
+): Promise<ConstructionResult> {
+  const regionGroups = new Map<string, RegionGroup[]>();
+  const decisions: RegionDecision[] = [];
+
+  type RegionEntry = { region: (typeof assessment.regions)[number]; action: Action; automaticAction: Action };
+  const toReconstruct: Array<RegionEntry & { subgraph: CommunitySubgraph }> = [];
+  const allEntries: Array<RegionEntry> = [];
+
+  for (const region of assessment.regions) {
+    const automaticAction = decideAction(region.score, config.structuralQualityBoundary);
+    const override = config.overrides?.get(region.regionId);
+    const action = override ?? automaticAction;
+    allEntries.push({ region, action, automaticAction });
+
+    if (action === "preserve") {
+      regionGroups.set(region.regionId, [{ fileIds: [...region.nodeIds] }]);
+    } else {
+      toReconstruct.push({ region, action, automaticAction, subgraph: buildSubgraph(model, region.nodeIds) });
+    }
+  }
+
+  if (toReconstruct.length > 0) {
+    const pool = new ConstructWorkerPool();
+    try {
+      const results = await Promise.all(
+        toReconstruct.map(({ region, subgraph }) =>
+          pool.dispatch({
+            regionId: region.regionId,
+            nodeIds: [...region.nodeIds],
+            edges: subgraph.edges,
+            seed: config.communityDetectionSeed,
+          })
+        )
+      );
+      for (let i = 0; i < toReconstruct.length; i++) {
+        regionGroups.set(toReconstruct[i]!.region.regionId, results[i]!);
+      }
+    } finally {
+      await pool.shutdown();
+    }
+  }
+
+  for (const { region, action, automaticAction } of allEntries) {
+    const override = config.overrides?.get(region.regionId);
+    decisions.push({
+      regionId: region.regionId,
+      cohesion: region.cohesion,
+      coupling: region.coupling,
+      ...(region.modularity !== undefined ? { modularity: region.modularity } : {}),
+      score: region.score,
+      action,
+      automaticAction,
+      userOverridden: override !== undefined,
+      decisionConfidence: Math.abs(region.score - config.structuralQualityBoundary),
+    });
+  }
+
+  return { regionGroups, decisions };
+}
+
 function reconstructRegion(
   model: WeightedModel,
   fileIds: readonly NodeId[],
   seed: number,
   detector: CommunityDetector
 ): RegionGroup[] {
+  const subgraph = buildSubgraph(model, fileIds);
+  const assignment = detector.detect(subgraph, seed);
+
+  const membersOf = new Map<number, NodeId[]>();
+  for (const fileId of [...fileIds].sort(compareIds)) {
+    const community = assignment.communityOf.get(fileId) ?? 0;
+    const list = membersOf.get(community);
+    if (list) list.push(fileId);
+    else membersOf.set(community, [fileId]);
+  }
+
+  return [...membersOf.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, members]) => ({ fileIds: members }));
+}
+
+function buildSubgraph(model: WeightedModel, fileIds: readonly NodeId[]): CommunitySubgraph {
   const memberSet = new Set(fileIds);
   const edges: CommunitySubgraph["edges"] = [];
   for (const edge of model.weightedEdges) {
     const sourceNode = model.nodesById.get(edge.source);
     const targetNode = model.nodesById.get(edge.target);
-    if (!sourceNode || !targetNode) {
-      continue;
-    }
+    if (!sourceNode || !targetNode) continue;
     const sourceFile = owningFileOf(sourceNode, model.nodesById);
     const targetFile = owningFileOf(targetNode, model.nodesById);
     if (
@@ -102,21 +180,5 @@ function reconstructRegion(
     }
     edges.push({ source: sourceFile, target: targetFile, strength: edge.strength });
   }
-
-  const assignment = detector.detect({ nodeIds: [...fileIds], edges }, seed);
-
-  const membersOf = new Map<number, NodeId[]>();
-  for (const fileId of [...fileIds].sort(compareIds)) {
-    const community = assignment.communityOf.get(fileId) ?? 0;
-    const list = membersOf.get(community);
-    if (list) {
-      list.push(fileId);
-    } else {
-      membersOf.set(community, [fileId]);
-    }
-  }
-
-  return [...membersOf.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([, members]) => ({ fileIds: members }));
+  return { nodeIds: [...fileIds], edges };
 }

@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import type { RawDependencyGraph } from "@repohive/shared";
@@ -63,9 +63,9 @@ function comparable(result: ConstructionResult): {
 // Feature: hierarchical-repository-grouping, Property 12: The preserve-versus-reconstruct decision matches the boundary comparison
 test("Property 12: the preserve-versus-reconstruct decision matches the boundary comparison (R4.1, R4.2, R4.3)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), arbitraryBoundary, (graph, boundary) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), arbitraryBoundary, async (graph, boundary) => {
       const { weighted, assessment } = assessGraph(graph);
-      const construction = construct(
+      const construction = await construct(
         weighted,
         assessment,
         { structuralQualityBoundary: boundary, communityDetectionSeed: 42 },
@@ -86,16 +86,16 @@ test("Property 12: the preserve-versus-reconstruct decision matches the boundary
 });
 
 // Feature: hierarchical-repository-grouping, Property 13: User-supplied actions override the automatic decision
-test("Property 13: user-supplied actions override the automatic decision (R4.6)", () => {
+test("Property 13: user-supplied actions override the automatic decision (R4.6)", async () => {
   fc.assert(
-    fc.property(
+    fc.asyncProperty(
       arbitraryDependencyGraph(),
       arbitraryBoundary,
       arbitraryOverridePicks,
-      (graph, boundary, picks) => {
+      async (graph, boundary, picks) => {
         const { weighted, assessment } = assessGraph(graph);
         const overrides = overridesFrom(assessment, picks);
-        const construction = construct(
+        const construction = await construct(
           weighted,
           assessment,
           { structuralQualityBoundary: boundary, communityDetectionSeed: 42, overrides },
@@ -119,11 +119,11 @@ test("Property 13: user-supplied actions override the automatic decision (R4.6)"
 });
 
 // Feature: hierarchical-repository-grouping, Property 14: Construction assigns every File to exactly one group result
-test("Property 14: construction assigns every File to exactly one group result (R4.5)", () => {
+test("Property 14: construction assigns every File to exactly one group result (R4.5)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), arbitraryBoundary, (graph, boundary) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), arbitraryBoundary, async (graph, boundary) => {
       const { weighted, assessment } = assessGraph(graph);
-      const construction = construct(
+      const construction = await construct(
         weighted,
         assessment,
         { structuralQualityBoundary: boundary, communityDetectionSeed: 42 },
@@ -145,13 +145,13 @@ test("Property 14: construction assigns every File to exactly one group result (
 });
 
 // Feature: hierarchical-repository-grouping, Property 15: Construction is deterministic given an identical boundary
-test("Property 15: construction is deterministic given an identical boundary (R4.7)", () => {
+test("Property 15: construction is deterministic given an identical boundary (R4.7)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), arbitraryBoundary, (graph, boundary) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), arbitraryBoundary, async (graph, boundary) => {
       const { weighted, assessment } = assessGraph(graph);
       const config = { structuralQualityBoundary: boundary, communityDetectionSeed: 42 };
-      const first = construct(weighted, assessment, config, new LouvainCommunityDetector());
-      const second = construct(weighted, assessment, config, new LouvainCommunityDetector());
+      const first = await construct(weighted, assessment, config, new LouvainCommunityDetector());
+      const second = await construct(weighted, assessment, config, new LouvainCommunityDetector());
 
       assert.deepEqual(comparable(second), comparable(first));
     }),
@@ -162,9 +162,9 @@ test("Property 15: construction is deterministic given an identical boundary (R4
 // Feature: hierarchical-repository-grouping, Property 16: Per-Region metadata is complete and consistent
 test("Property 16: per-Region metadata is complete and consistent (R5.1, R5.3, R5.4)", () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), arbitraryBoundary, (graph, boundary) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), arbitraryBoundary, async (graph, boundary) => {
       const { weighted, assessment } = assessGraph(graph);
-      const construction = construct(
+      const construction = await construct(
         weighted,
         assessment,
         { structuralQualityBoundary: boundary, communityDetectionSeed: 42 },
@@ -188,7 +188,7 @@ test("Property 16: per-Region metadata is complete and consistent (R5.1, R5.3, R
         assert.ok(decision.action === "preserve" || decision.action === "reconstruct");
         assert.ok(
           Math.abs(decision.decisionConfidence - Math.abs(decision.score - boundary)) <= 1e-12,
-          "decisionConfidence must be |score − boundary|"
+          "decisionConfidence must be |score âˆ’ boundary|"
         );
       }
     }),
@@ -197,16 +197,16 @@ test("Property 16: per-Region metadata is complete and consistent (R5.1, R5.3, R
 });
 
 // Feature: hierarchical-repository-grouping, Property 17: Overridden decisions record both the user and automatic action
-test("Property 17: overridden decisions record both the user and automatic action (R5.6)", () => {
+test("Property 17: overridden decisions record both the user and automatic action (R5.6)", async () => {
   fc.assert(
-    fc.property(
+    fc.asyncProperty(
       arbitraryDependencyGraph(),
       arbitraryBoundary,
       arbitraryOverridePicks,
-      (graph, boundary, picks) => {
+      async (graph, boundary, picks) => {
         const { weighted, assessment } = assessGraph(graph);
         const overrides = overridesFrom(assessment, picks);
-        const construction = construct(
+        const construction = await construct(
           weighted,
           assessment,
           { structuralQualityBoundary: boundary, communityDetectionSeed: 42, overrides },
@@ -228,11 +228,11 @@ test("Property 17: overridden decisions record both the user and automatic actio
 });
 
 // Feature: hierarchical-repository-grouping, Property 18: Recorded boundary and scores reproduce the original decisions
-test("Property 18: recorded boundary and scores reproduce the original decisions (R5.7)", () => {
+test("Property 18: recorded boundary and scores reproduce the original decisions (R5.7)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), arbitraryBoundary, (graph, boundary) => {
+    fc.asyncProperty(arbitraryDependencyGraph(), arbitraryBoundary, async (graph, boundary) => {
       const { weighted, assessment } = assessGraph(graph);
-      const construction = construct(
+      const construction = await construct(
         weighted,
         assessment,
         { structuralQualityBoundary: boundary, communityDetectionSeed: 42 },
@@ -241,7 +241,7 @@ test("Property 18: recorded boundary and scores reproduce the original decisions
 
       // Req 5.7 is about the RECORDED values: push the decisions and the
       // boundary through a JSON round-trip (what metadata.json does) and
-      // replay the comparison over the parsed values — this catches any
+      // replay the comparison over the parsed values â€” this catches any
       // serialization precision loss that could flip a near-boundary
       // decision, which an in-memory replay never would.
       const recorded = JSON.parse(
@@ -258,7 +258,7 @@ test("Property 18: recorded boundary and scores reproduce the original decisions
   );
 });
 
-test("boundary 0 preserves everywhere and boundary 1.000001 reconstructs everywhere on the same assessed graph (R4.4)", () => {
+test("boundary 0 preserves everywhere and boundary 1.000001 reconstructs everywhere on the same assessed graph (R4.4)", async () => {
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:src/com/alpha/A.java", kind: "file", packagePath: "com.alpha", directoryPath: "src/com/alpha" },
@@ -292,8 +292,8 @@ test("boundary 0 preserves everywhere and boundary 1.000001 reconstructs everywh
   };
   const { weighted, assessment } = assessGraph(graph);
 
-  // Scores live in [0, 1]: boundary 0 makes score ≥ boundary universally true...
-  const preserved = construct(
+  // Scores live in [0, 1]: boundary 0 makes score â‰¥ boundary universally true...
+  const preserved = await construct(
     weighted,
     assessment,
     { structuralQualityBoundary: 0, communityDetectionSeed: 42 },
@@ -311,8 +311,8 @@ test("boundary 0 preserves everywhere and boundary 1.000001 reconstructs everywh
   }
 
   // ...while a boundary just above 1 makes it universally false. Pure
-  // configuration flips every decision — no code change.
-  const reconstructed = construct(
+  // configuration flips every decision â€” no code change.
+  const reconstructed = await construct(
     weighted,
     assessment,
     { structuralQualityBoundary: 1.000001, communityDetectionSeed: 42 },
@@ -324,7 +324,7 @@ test("boundary 0 preserves everywhere and boundary 1.000001 reconstructs everywh
   }
 });
 
-test("decisions carry the Modularity value WHERE it is computed (R5.1)", () => {
+test("decisions carry the Modularity value WHERE it is computed (R5.1)", async () => {
   const graph: RawDependencyGraph = {
     nodes: [
       { id: "file:src/com/alpha/A.java", kind: "file", packagePath: "com.alpha", directoryPath: "src/com/alpha" },
@@ -342,8 +342,8 @@ test("decisions carry the Modularity value WHERE it is computed (R5.1)", () => {
   assert.ok(ingested.ok);
   const weighted = computeWeights(ingested.value);
 
-  // Modularity ON → every decision records a finite modularity value.
-  const withModularity = construct(
+  // Modularity ON â†’ every decision records a finite modularity value.
+  const withModularity = await construct(
     weighted,
     assess(weighted, {
       weights: { cohesion: 0.4, coupling: 0.4, modularity: 0.2 },
@@ -359,8 +359,8 @@ test("decisions carry the Modularity value WHERE it is computed (R5.1)", () => {
     assert.ok(Number.isFinite(decision.modularity));
   }
 
-  // Modularity OFF (default) → the field is absent, not zero/null.
-  const withoutModularity = construct(
+  // Modularity OFF (default) â†’ the field is absent, not zero/null.
+  const withoutModularity = await construct(
     weighted,
     assess(weighted),
     { structuralQualityBoundary: 0.5, communityDetectionSeed: 42 },

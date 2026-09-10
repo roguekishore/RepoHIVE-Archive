@@ -62,8 +62,9 @@ function navigationStats(metadata: Metadata): string {
 
 console.log("RepoHIVE core — construction-policy comparison (Evaluation Design)");
 console.log(`  input: ${graphPath}`);
+(async () => {
 for (const policy of POLICIES) {
-  const result = groupGraph(graph.value, policy.config);
+  const result = await groupGraph(graph.value, policy.config);
   if (!result.ok) {
     console.error(`  ${policy.name}: ${describeError(result.error)}`);
     process.exit(1);
@@ -83,3 +84,4 @@ for (const policy of POLICIES) {
     }
   }
 }
+})();

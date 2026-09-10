@@ -17,16 +17,14 @@ function serializedFiles(output: GroupingOutput): Record<IndexFileName, string> 
 }
 
 // Feature: hierarchical-repository-grouping, Property 24: Full-build determinism
-test("Property 24: two full builds on the same input serialize byte-identically (R7.1)", () => {
-  fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const first = groupGraph(graph);
-      const second = groupGraph(graph);
+test("Property 24: two full builds on the same input serialize byte-identically (R7.1)", async () => {
+  await fc.assert(
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const first = await groupGraph(graph);
+      const second = await groupGraph(graph);
       assert.ok(first.ok, "valid graph must group (first run)");
       assert.ok(second.ok, "valid graph must group (second run)");
 
-      // Structural checks first — redundant with byte equality below, but
-      // they localize a failure to node ids or depth instead of a byte diff.
       assert.deepEqual(
         new Set(second.value.hierarchy.nodes.keys()),
         new Set(first.value.hierarchy.nodes.keys())
@@ -44,11 +42,11 @@ test("Property 24: two full builds on the same input serialize byte-identically 
 });
 
 // Feature: hierarchical-repository-grouping, Property 25: Order-independence of input
-test("Property 25: shuffled input yields byte-identical index files (R7.2)", () => {
-  fc.assert(
-    fc.property(arbitraryDependencyGraph(), fc.nat(), (graph, seed) => {
-      const original = groupGraph(graph);
-      const shuffled = groupGraph(shuffleGraph(graph, seed));
+test("Property 25: shuffled input yields byte-identical index files (R7.2)", async () => {
+  await fc.assert(
+    fc.asyncProperty(arbitraryDependencyGraph(), fc.nat(), async (graph, seed) => {
+      const original = await groupGraph(graph);
+      const shuffled = await groupGraph(shuffleGraph(graph, seed));
       assert.ok(original.ok, "valid graph must group");
       assert.ok(shuffled.ok, "shuffled graph must group");
 

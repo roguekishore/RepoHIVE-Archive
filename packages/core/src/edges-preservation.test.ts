@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { test } from "node:test";
 import fc from "fast-check";
 import type { DependencyEdge, NodeId, RawDependencyGraph } from "@repohive/shared";
@@ -9,7 +9,7 @@ import { arbitraryDependencyGraph } from "./test-support/arbitraries.js";
 
 const edgeKey = (source: string, target: string) => JSON.stringify([source, target]);
 
-/** Root→node id chain following parentId links (index 0 = repository). */
+/** Rootâ†’node id chain following parentId links (index 0 = repository). */
 function rootToNodeChain(id: NodeId, nodes: Map<NodeId, HierarchyNode>): NodeId[] {
   const chain: NodeId[] = [];
   let current = nodes.get(id);
@@ -21,8 +21,8 @@ function rootToNodeChain(id: NodeId, nodes: Map<NodeId, HierarchyNode>): NodeId[
 }
 
 /**
- * Independent recomputation of the expected Cross_Group_Edges (R8.2–R8.4):
- * for each leaf edge, walk the two root→leaf ancestor chains in lockstep;
+ * Independent recomputation of the expected Cross_Group_Edges (R8.2â€“R8.4):
+ * for each leaf edge, walk the two rootâ†’leaf ancestor chains in lockstep;
  * at each shared depth where the ids differ and BOTH nodes are group-kind,
  * accumulate the edge's strength into the (sourceAncestor, targetAncestor)
  * pair; stop at the first diverged depth where either node is not a group.
@@ -102,14 +102,14 @@ function reachablePairs(
 }
 
 // Feature: hierarchical-repository-grouping, Property 26: All leaf edges are retained with direction and strength
-test("Property 26: all leaf edges are retained with direction and strength (R8.1)", () => {
+test("Property 26: all leaf edges are retained with direction and strength (R8.1)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const result = groupGraph(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const result = await groupGraph(graph);
       assert.ok(result.ok, "valid graph must group");
       const { hierarchy } = result.value;
 
-      // Exactly one leaf edge per input edge — multiset semantics, so
+      // Exactly one leaf edge per input edge â€” multiset semantics, so
       // parallel (source, target) edges with different content count too.
       assert.equal(hierarchy.leafEdges.length, graph.edges.length);
 
@@ -144,10 +144,10 @@ test("Property 26: all leaf edges are retained with direction and strength (R8.1
 });
 
 // Feature: hierarchical-repository-grouping, Property 27: Cross-group edges are correctly placed and weighted
-test("Property 27: cross-group edges are correctly placed and weighted (R8.2, R8.3, R8.4)", () => {
+test("Property 27: cross-group edges are correctly placed and weighted (R8.2, R8.3, R8.4)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const result = groupGraph(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const result = await groupGraph(graph);
       assert.ok(result.ok, "valid graph must group");
       const { hierarchy } = result.value;
 
@@ -183,13 +183,13 @@ test("Property 27: cross-group edges are correctly placed and weighted (R8.2, R8
   );
 });
 
-test("cross-group edges match a hand-computed expectation, at every diverged group level (R8.2, R8.4)", () => {
+test("cross-group edges match a hand-computed expectation, at every diverged group level (R8.2, R8.4)", async () => {
   // Two preserve-forced packages, so the tree shape is fully known:
-  // repo → L1_a → L2_a → {A1, A2} and repo → L1_b → L2_b → {B1, B2}.
-  // Edges: A1→B1 (strength 3), A2→B1 (strength 2), B2→A1 (strength 1).
+  // repo â†’ L1_a â†’ L2_a â†’ {A1, A2} and repo â†’ L1_b â†’ L2_b â†’ {B1, B2}.
+  // Edges: A1â†’B1 (strength 3), A2â†’B1 (strength 2), B2â†’A1 (strength 1).
   // Expected (hand-computed from the INPUT, not from the tree walk):
-  //   level 1: L1_a→L1_b weight 5, L1_b→L1_a weight 1
-  //   level 2: L2_a→L2_b weight 5, L2_b→L2_a weight 1
+  //   level 1: L1_aâ†’L1_b weight 5, L1_bâ†’L1_a weight 1
+  //   level 2: L2_aâ†’L2_b weight 5, L2_bâ†’L2_a weight 1
   const file = (name: string): string => `file:src/com/${name}.java`;
   const node = (name: string, pkg: string) => ({
     id: file(name),
@@ -208,7 +208,7 @@ test("cross-group edges match a hand-computed expectation, at every diverged gro
     nodes: [node("a/A1", "com.a"), node("a/A2", "com.a"), node("b/B1", "com.b"), node("b/B2", "com.b")],
     edges: [edge("a/A1", "b/B1", 3), edge("a/A2", "b/B1", 2), edge("b/B2", "a/A1", 1)],
   };
-  const result = groupGraph(graph, { structuralQualityBoundary: 0 });
+  const result = await groupGraph(graph, { structuralQualityBoundary: 0 });
   assert.ok(result.ok);
   const { hierarchy } = result.value;
 
@@ -236,8 +236,8 @@ test("cross-group edges match a hand-computed expectation, at every diverged gro
   assert.deepEqual(actual, expected);
 });
 
-test("leaves sharing their immediate parent contribute no CGE at that level (R8.3)", () => {
-  // Two files in one package → one Region; boundary 0 forces preserve, so the
+test("leaves sharing their immediate parent contribute no CGE at that level (R8.3)", async () => {
+  // Two files in one package â†’ one Region; boundary 0 forces preserve, so the
   // Region stays a single group and the endpoints share every group ancestor.
   const graph: RawDependencyGraph = {
     nodes: [
@@ -254,7 +254,7 @@ test("leaves sharing their immediate parent contribute no CGE at that level (R8.
       },
     ],
   };
-  const result = groupGraph(graph, { structuralQualityBoundary: 0 });
+  const result = await groupGraph(graph, { structuralQualityBoundary: 0 });
   assert.ok(result.ok);
   const { hierarchy } = result.value;
 
@@ -270,10 +270,10 @@ test("leaves sharing their immediate parent contribute no CGE at that level (R8.
 });
 
 // Feature: hierarchical-repository-grouping, Property 28: Leaf-to-leaf reachability is preserved
-test("Property 28: leaf-to-leaf reachability is preserved (R8.5)", () => {
+test("Property 28: leaf-to-leaf reachability is preserved (R8.5)", async () => {
   fc.assert(
-    fc.property(arbitraryDependencyGraph(), (graph) => {
-      const result = groupGraph(graph);
+    fc.asyncProperty(arbitraryDependencyGraph(), async (graph) => {
+      const result = await groupGraph(graph);
       assert.ok(result.ok, "valid graph must group");
       const { hierarchy } = result.value;
 

@@ -92,14 +92,14 @@ const SAFETY_VALVE_GRAPH: RawDependencyGraph = {
 
 const EXPECTED_REGIONS = ["pkg:com.acme.app", "pkg:com.acme.core", "pkg:com.acme.util"];
 
-function groupSafetyValve(): GroupingOutput {
-  const result = groupGraph(SAFETY_VALVE_GRAPH);
+async function groupSafetyValve(): Promise<GroupingOutput> {
+  const result = await groupGraph(SAFETY_VALVE_GRAPH);
   assert.ok(result.ok, "the safety-valve fixture must group under the default config");
   return result.value;
 }
 
-test("groupGraph on the safety-valve fixture places every file exactly once (R6, R4.5)", () => {
-  const { hierarchy } = groupSafetyValve();
+test("groupGraph on the safety-valve fixture places every file exactly once (R6, R4.5)", async () => {
+  const { hierarchy } = await groupSafetyValve();
 
   // Every input file id appears exactly once as a file-kind hierarchy node.
   const fileNodes = [...hierarchy.nodes.values()].filter((node) => node.kind === "file");
@@ -116,8 +116,8 @@ test("groupGraph on the safety-valve fixture places every file exactly once (R6,
   assert.ok(hierarchy.depth >= 3, "repository → region group → construction group → file");
 });
 
-test("metadata records one decision per package region against the 0.5 boundary (R5)", () => {
-  const { metadata } = groupSafetyValve();
+test("metadata records one decision per package region against the 0.5 boundary (R5)", async () => {
+  const { metadata } = await groupSafetyValve();
 
   assert.equal(metadata.structuralQualityBoundary, 0.5);
 
@@ -158,8 +158,8 @@ test("metadata records one decision per package region against the 0.5 boundary 
   assert.equal(typeof metadata.cohesionSquashConstant, "number");
 });
 
-test("serialize → parseIndex round trip preserves ids, depth, and decisions (R9.5)", () => {
-  const { hierarchy, metadata } = groupSafetyValve();
+test("serialize → parseIndex round trip preserves ids, depth, and decisions (R9.5)", async () => {
+  const { hierarchy, metadata } = await groupSafetyValve();
 
   const dir = mkdtempSync(join(tmpdir(), "repohive-e2e-index-"));
   try {
@@ -177,8 +177,8 @@ test("serialize → parseIndex round trip preserves ids, depth, and decisions (R
   }
 });
 
-test("blast radius of the file everyone imports reaches all its dependents (R10)", () => {
-  const { hierarchy } = groupSafetyValve();
+test("blast radius of the file everyone imports reaches all its dependents (R10)", async () => {
+  const { hierarchy } = await groupSafetyValve();
 
   const radius = analyzeBlastRadius(hierarchy, ENGINE);
   assert.ok(radius.ok);
@@ -188,20 +188,17 @@ test("blast radius of the file everyone imports reaches all its dependents (R10)
   assert.ok(radius.value.groupNodes.length > 0, "impacted leaves surface their containing groups");
 });
 
-test("the checked-in sample-java-project fixture groups with every input node as a leaf", () => {
+test("the checked-in sample-java-project fixture groups with every input node as a leaf", async () => {
   const fixturePath = findSampleFixture();
   if (fixturePath === null) {
-    return; // Fixture not present in this checkout; nothing to verify.
+    return;
   }
 
   const raw = JSON.parse(readFileSync(fixturePath, "utf8")) as RawDependencyGraph;
   assert.equal(raw.nodes.length, 29);
-  // Edge count updated after Wave A (Gap 1a + 1c) re-parse: type-use edges and
-  // same-package resolution now produce 6 edges instead of 5 (one additional
-  // intra-package edge discovered via sharedTypeCount).
   assert.equal(raw.edges.length, 6);
 
-  const result = groupGraph(raw);
+  const result = await groupGraph(raw);
   assert.ok(result.ok, "the parser fixture must group under the default config");
 
   const leafKinds = new Set(["file", "class", "function"]);

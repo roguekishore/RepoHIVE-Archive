@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import type { RawDependencyGraph } from "@repohive/shared";
 import { assess, DEFAULT_ASSESSMENT_CONFIG } from "./assessor.js";
-import { construct } from "./constructor.js";
+import { constructParallel } from "./constructor.js";
 import { LouvainCommunityDetector, type CommunityDetector } from "./community.js";
 import { err, ok, type Result } from "./errors.js";
 import {
@@ -229,23 +229,23 @@ function runConfigurationOf(config: GroupingConfig): RunConfiguration {
 }
 
 /** Run the full in-memory pipeline over a raw dependency graph. */
-export function groupGraph(
+export async function groupGraph(
   input: RawDependencyGraph | null | undefined,
   partialConfig?: PartialGroupingConfig,
   detector: CommunityDetector = new LouvainCommunityDetector()
-): Result<GroupingOutput> {
+): Promise<Result<GroupingOutput>> {
   try {
-    return groupGraphUnguarded(input, partialConfig, detector);
+    return await groupGraphUnguarded(input, partialConfig, detector);
   } catch (cause) {
     return internalError(cause);
   }
 }
 
-function groupGraphUnguarded(
+async function groupGraphUnguarded(
   input: RawDependencyGraph | null | undefined,
   partialConfig: PartialGroupingConfig | undefined,
   detector: CommunityDetector
-): Result<GroupingOutput> {
+): Promise<Result<GroupingOutput>> {
   const config = resolveConfig(partialConfig);
 
   // The configuration gate runs first, before any work: an invalid parameter
@@ -261,15 +261,14 @@ function groupGraphUnguarded(
   }
   const weighted = computeWeights(ingested.value, config.weightCoefficients);
   const assessment = assess(weighted, config.assessment);
-  const constructed = construct(
+  const constructed = await constructParallel(
     weighted,
     assessment,
     {
       structuralQualityBoundary: config.structuralQualityBoundary,
       ...(config.overrides !== undefined ? { overrides: config.overrides } : {}),
       communityDetectionSeed: config.communityDetectionSeed,
-    },
-    detector
+    }
   );
   const hierarchy = buildHierarchy(constructed, weighted, config.hierarchy);
   if (!hierarchy.ok) {
@@ -296,13 +295,13 @@ function groupGraphUnguarded(
 }
 
 /** Run the pipeline and write the Index_File_Set to `outDir`. */
-export function groupGraphToIndex(
+export async function groupGraphToIndex(
   input: RawDependencyGraph | null | undefined,
   outDir: string,
   partialConfig?: PartialGroupingConfig,
   detector?: CommunityDetector
-): Result<GroupingOutput> {
-  const output = groupGraph(input, partialConfig, detector);
+): Promise<Result<GroupingOutput>> {
+  const output = await groupGraph(input, partialConfig, detector);
   if (!output.ok) {
     return output;
   }
