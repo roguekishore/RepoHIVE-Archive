@@ -1,0 +1,12 @@
+.git
+.next
+node_modules
+packages/*/node_modules
+.env*
+fixtures/
+repowise/
+ui-ideas/
+archive/
+*.md
+.claude/
+tooling/

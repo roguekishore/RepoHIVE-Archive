@@ -1,0 +1,38 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+    environment:
+      NODE_ENV: production
+      REPOHIVE_INDEX_ROOT: /data/indexes
+      # REPOWISE_PROXY_TARGET must remain unset: middleware.ts would rewrite
+      # all /api/* to it when set, breaking every real route handler.
+    volumes:
+      - indexes:/data/indexes
+    # Port 3000 is intentionally NOT published to the host.
+    # Only Caddy (inside the compose network) can reach it.
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  indexes:
+  # Named volume so Let's Encrypt certificates survive container restarts.
+  # Losing this volume triggers re-issuance; LE rate-limits to five certs per
+  # registered domain per week, so a restart loop can exhaust the quota.
+  caddy_data:
+  caddy_config:
