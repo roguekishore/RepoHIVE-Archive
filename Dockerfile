@@ -77,7 +77,7 @@ EXPOSE 3000
 # /api/repos is the only confirmed handler — /health and /metrics have no route
 # implementations (middleware.ts matcher only) and would permanently 404.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/repos',function(r){process.exit(r.statusCode===200?0:1)}).on('error',function(){process.exit(1)})"
+  CMD node -e "require('http').get('http://127.0.0.1:3000/api/repos',function(r){process.exit(r.statusCode===200?0:1)}).on('error',function(){process.exit(1)})"
 
 # Nested because this is an npm workspace: the standalone bundle puts server.js
 # at packages/web/server.js, not at the bundle root. Verified 2026-09-10 against
