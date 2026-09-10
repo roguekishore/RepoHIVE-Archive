@@ -13,9 +13,9 @@ import { CommandPalette } from "@/components/search/command-palette";
 import { ContextDrawerShell } from "@/components/layout/context-drawer-provider";
 import { SWRProvider } from "@/components/layout/swr-provider";
 import { UpgradeBanner } from "@/components/layout/upgrade-banner";
-import { listRepos } from "@/lib/api/repos";
+import { listRegistryRepos, indexPresent } from "@/lib/repohive/repo-registry";
 import { getWorkspace } from "@/lib/api/workspace";
-import type { WorkspaceResponse } from "@/lib/api/types";
+import type { RepoResponse, WorkspaceResponse } from "@/lib/api/types";
 import "@/styles/globals.css";
 
 // Serif display face for the docs/wiki reading surfaces (--font-serif token).
@@ -35,19 +35,27 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Fetch repos + workspace info server-side for the sidebar.
-  // Gracefully fall back to empty/null if the API is unavailable.
-  let repos: Awaited<ReturnType<typeof listRepos>> = [];
+  // Build repo list directly from the registry — avoids an HTTP round-trip to
+  // localhost:7337 that silently fails in production (server-component rule).
+  const repos: RepoResponse[] = listRegistryRepos()
+    .filter(indexPresent)
+    .map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      url: "",
+      local_path: "",
+      default_branch: "main",
+      head_commit: null,
+      settings: {},
+      created_at: "",
+      updated_at: "",
+    }));
+
   let workspace: WorkspaceResponse | null = null;
   try {
-    const [reposResult, wsResult] = await Promise.allSettled([
-      listRepos(),
-      getWorkspace(),
-    ]);
-    if (reposResult.status === "fulfilled") repos = reposResult.value;
-    if (wsResult.status === "fulfilled") workspace = wsResult.value;
+    workspace = await getWorkspace();
   } catch {
-    // API not available — show empty sidebar
+    // Workspace API unavailable — sidebar works without it.
   }
 
   return (
