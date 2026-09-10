@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowUpRight, ScanSearch } from "lucide-react";
 import { BrandLogo } from "@/components/layout/brand-logo";
+import { IndexRepoForm } from "@/components/indexing/index-repo-form";
+import { JobsPanel } from "@/components/indexing/jobs-panel";
 import {
+  indexPresent,
   listRegistryRepos,
   resolveIndexDir,
   type RepoRegistryEntry,
@@ -12,28 +15,32 @@ import { loadIndex } from "@/lib/repohive/index-loader";
 export const metadata: Metadata = { title: "RepoHIVE" };
 
 /**
- * Landing — an honest index of what this machine has actually indexed.
+ * Landing — submit a repository, then browse what this instance has indexed.
  *
- * Every number on this page is read from a repo's `index/` on disk at request
+ * The form is the primary action; the card list below it is the result of it.
+ * Every number on a card is read from that repo's `index/` on disk at request
  * time: file/edge counts from the parsed hierarchy, the preserve/reconstruct
- * split from the recorded region decisions. A registered fixture whose index
- * is absent (the large ones are git-ignored) is shown as absent, with the
- * command that would produce it — never as a row of zeros pretending to be a
- * measurement.
+ * split from the recorded region decisions. A registered repo whose index is
+ * not readable gets no card at all rather than a row of zeros pretending to be
+ * a measurement — and because a queued, running or failed job has no
+ * measurements to show, those surface in <JobsPanel />, which reads their
+ * recorded status instead.
  */
 export const dynamic = "force-dynamic";
 
+interface RepoStats {
+  files: number;
+  leafEdges: number;
+  depth: number;
+  regions: number;
+  preserved: number;
+  reconstructed: number;
+  boundary: number;
+}
+
 interface RepoCard {
   entry: RepoRegistryEntry;
-  stats: {
-    files: number;
-    leafEdges: number;
-    depth: number;
-    regions: number;
-    preserved: number;
-    reconstructed: number;
-    boundary: number;
-  } | null;
+  stats: RepoStats | null;
 }
 
 function readRepoCard(entry: RepoRegistryEntry): RepoCard {
@@ -92,9 +99,17 @@ function Figure({ label, value }: { label: string; value: string }) {
 }
 
 export default function LandingPage() {
-  const cards = listRegistryRepos().map(readRepoCard);
-  const present = cards.filter((c) => c.stats !== null);
-  const absent = cards.filter((c) => c.stats === null);
+  // `indexPresent` first, matching `GET /api/repos`, so the page and the sidebar
+  // cannot disagree about what exists. It is the only check that reads C2's
+  // `status`, and the case it catches is a re-index: the previous `index/` stays
+  // on disk until the promoting rename at the very end, so a repo whose
+  // re-index is running or failed still has a readable `metadata.json` and would
+  // otherwise draw a card from the stale index *and* appear in <JobsPanel />.
+  // It also skips parsing an index this page is about to discard.
+  const present = listRegistryRepos()
+    .filter(indexPresent)
+    .map(readRepoCard)
+    .filter((card): card is { entry: RepoRegistryEntry; stats: RepoStats } => card.stats !== null);
 
   return (
     <div className="mx-auto max-w-[880px] p-5 sm:p-8">
@@ -114,18 +129,29 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="mt-8 space-y-3" aria-label="Indexed repositories">
+      {/*
+        Flex + gap rather than a wrapper div with a margin: JobsPanel renders
+        nothing when there is no unfinished job, and a null child contributes no
+        flex item, so the gap disappears with it.
+      */}
+      <div className="mt-8 flex flex-col gap-4">
+        <IndexRepoForm />
+        <JobsPanel />
+      </div>
+
+      <section className="mt-8 space-y-3" aria-labelledby="indexed-repositories">
+        <h2
+          id="indexed-repositories"
+          className="text-caption font-medium uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]"
+        >
+          Indexed repositories
+        </h2>
+
         {present.length === 0 && (
-          <div className="rounded-[var(--radius-lg)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-6 text-sm text-[var(--color-text-secondary)]">
-            No index is present on this machine yet. Run{" "}
-            <code className="rounded bg-[var(--color-bg-inset)] px-1.5 py-0.5 font-mono text-xs">
-              npm run parse -- fixtures/sample-java-project
-            </code>{" "}
-            then{" "}
-            <code className="rounded bg-[var(--color-bg-inset)] px-1.5 py-0.5 font-mono text-xs">
-              npm run group -- fixtures/sample-java-project
-            </code>
-            .
+          <div className="rounded-[var(--radius-lg)] border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-6 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+            Nothing is indexed here yet. Paste a public GitHub repository URL in the field above:
+            RepoHIVE fetches it, parses every Java file, groups the result, and the finished index
+            appears here with its measurements.
           </div>
         )}
 
@@ -148,47 +174,21 @@ export default function LandingPage() {
               </span>
             </div>
 
-            {stats && (
-              <>
-                <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
-                  <Figure label="Files" value={String(stats.files)} />
-                  <Figure label="Dependencies" value={String(stats.leafEdges)} />
-                  <Figure label="Depth" value={String(stats.depth)} />
-                  <Figure label="Regions" value={String(stats.regions)} />
-                  <Figure
-                    label="Preserved / rebuilt"
-                    value={`${stats.preserved} / ${stats.reconstructed}`}
-                  />
-                </dl>
-                <div className="mt-3">
-                  <SplitBar preserved={stats.preserved} reconstructed={stats.reconstructed} />
-                </div>
-              </>
-            )}
+            <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-5">
+              <Figure label="Files" value={String(stats.files)} />
+              <Figure label="Dependencies" value={String(stats.leafEdges)} />
+              <Figure label="Depth" value={String(stats.depth)} />
+              <Figure label="Regions" value={String(stats.regions)} />
+              <Figure
+                label="Preserved / rebuilt"
+                value={`${stats.preserved} / ${stats.reconstructed}`}
+              />
+            </dl>
+            <div className="mt-3">
+              <SplitBar preserved={stats.preserved} reconstructed={stats.reconstructed} />
+            </div>
           </Link>
         ))}
-
-        {absent.length > 0 && (
-          <div className="rounded-[var(--radius-lg)] border border-dashed border-[var(--color-border-default)] p-5">
-            <p className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">
-              Registered, index not on this machine
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {absent.map(({ entry }) => (
-                <li
-                  key={entry.id}
-                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm text-[var(--color-text-secondary)]"
-                >
-                  <span className="font-medium text-[var(--color-text-primary)]">{entry.name}</span>
-                  <code className="font-mono text-xs text-[var(--color-text-tertiary)]">
-                    npm run parse -- fixtures/{entry.dir} &amp;&amp; npm run group -- fixtures/
-                    {entry.dir}/graph.json fixtures/{entry.dir}/index
-                  </code>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </section>
     </div>
   );
