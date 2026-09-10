@@ -1,8 +1,10 @@
+import { rmSync } from "node:fs";
+
 import { NextResponse } from "next/server";
 
 import { isValidRepoId } from "@/lib/indexing/github-url";
 import { readJobFile, type JobErrorCode, type JobRecord } from "@/lib/indexing/job-file";
-import { indexRoot, jobFilePath } from "@/lib/indexing/paths";
+import { indexRoot, jobFilePath, repoDir } from "@/lib/indexing/paths";
 
 /**
  * `GET /api/jobs/{repoId}` — read a job's `job.json` back (SPEC item 3).
@@ -96,4 +98,43 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
 
   const status = job.status === "failed" && job.error !== null ? statusForError(job.error.code) : 200;
   return NextResponse.json(jobResponse(job), { status, headers: NO_STORE });
+}
+
+/** DELETE /api/jobs/{repoId} — remove a failed job's directory so it no longer
+ *  appears in the panel. Only terminal (failed) jobs may be dismissed; a running
+ *  or queued job cannot be aborted this way. */
+export async function DELETE(_request: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
+
+  const root = indexRoot();
+  if (root === null) {
+    return NextResponse.json(
+      { detail: "Indexing is not configured on this server." },
+      { status: 503, headers: NO_STORE },
+    );
+  }
+
+  if (!isValidRepoId(id)) {
+    return NextResponse.json({ detail: `Unknown job '${id}'.` }, { status: 404, headers: NO_STORE });
+  }
+
+  const job = readJobFile(jobFilePath(root, id));
+  if (job === null) {
+    return NextResponse.json({ detail: `Unknown job '${id}'.` }, { status: 404, headers: NO_STORE });
+  }
+
+  if (job.status !== "failed") {
+    return NextResponse.json(
+      { detail: "Only failed jobs can be dismissed." },
+      { status: 409, headers: NO_STORE },
+    );
+  }
+
+  try {
+    rmSync(repoDir(root, id), { recursive: true, force: true });
+  } catch {
+    return NextResponse.json({ detail: "Failed to remove job directory." }, { status: 500, headers: NO_STORE });
+  }
+
+  return new NextResponse(null, { status: 204 });
 }

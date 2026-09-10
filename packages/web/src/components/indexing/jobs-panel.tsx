@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, X } from "lucide-react";
 
 import type { JobRecord } from "@/lib/indexing/job-file";
 
@@ -101,15 +101,12 @@ export function JobsPanel(): React.JSX.Element | null {
           received = Array.isArray(body.jobs) ? body.jobs : [];
         }
       } catch {
-        // Network failure, or the abort from unmount. Either way there is
-        // nothing to show and nothing to report on screen.
+        // Network failure, or the abort from unmount.
       }
       if (cancelled) return;
 
       if (received === null) {
         consecutiveErrors += 1;
-        // Keep whatever was last shown rather than blanking the panel on one
-        // bad poll; a failure already on screen is still true.
         if (consecutiveErrors < MAX_CONSECUTIVE_ERRORS) {
           timer = setTimeout(poll, POLL_INTERVAL_MS);
         }
@@ -118,9 +115,6 @@ export function JobsPanel(): React.JSX.Element | null {
 
       consecutiveErrors = 0;
       setJobs(received);
-      // Poll again only while something can still change on its own. Once every
-      // job is done or failed the list is settled, and a timer that outlives
-      // that would just re-read the same directory forever.
       if (received.some(isPending)) {
         timer = setTimeout(poll, POLL_INTERVAL_MS);
       }
@@ -134,9 +128,13 @@ export function JobsPanel(): React.JSX.Element | null {
     };
   }, []);
 
+  async function dismiss(repoId: string): Promise<void> {
+    setJobs((prev) => prev.filter((j) => j.repoId !== repoId));
+    await fetch(`/api/jobs/${encodeURIComponent(repoId)}`, { method: "DELETE" });
+  }
+
   // `done` repos are already full cards on the landing page.
   const visible = jobs.filter((job) => job.status !== "done");
-  // Nothing in flight, nothing broken, or nothing read yet — say nothing.
   if (visible.length === 0) return null;
 
   return (
@@ -148,12 +146,6 @@ export function JobsPanel(): React.JSX.Element | null {
         Indexing
       </p>
 
-      {/*
-        Announced as it changes, so a stage advancing or a job failing reaches a
-        screen reader without watching the icons. `role="status"` is polite by
-        definition; the text is recomposed every render, so the region fires only
-        when the sentence actually differs.
-      */}
       <div role="status" aria-live="polite" className="sr-only">
         {visible.map(announcement).join(". ")}
       </div>
@@ -185,6 +177,15 @@ export function JobsPanel(): React.JSX.Element | null {
                   </span>
                 )}
               </span>
+              {failed && (
+                <button
+                  onClick={() => void dismiss(job.repoId)}
+                  aria-label={`Dismiss ${job.name}`}
+                  className="mt-0.5 shrink-0 self-start rounded p-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </li>
           );
         })}
