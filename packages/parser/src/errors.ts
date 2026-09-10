@@ -78,6 +78,16 @@ export interface ParseSuccess {
    * Omitted when none were skipped.
    */
   excludedDirectoryCount?: number;
+  /**
+   * The recoverable per-file errors that were tolerated rather than gated on,
+   * present only when `ParseOptions.tolerateFileErrors` was set and at least
+   * one file was skipped. Each entry names a file that contributed no nodes and
+   * no references; the graph was still written from the files that succeeded.
+   *
+   * Absent in the default (gating) mode, where any recoverable error fails the
+   * run instead — so a caller that never opts in cannot observe this field.
+   */
+  skippedFiles?: ParseError[];
 }
 
 /**

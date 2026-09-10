@@ -19,7 +19,10 @@
  * 5. **Gate on the collector.** If any recoverable error was recorded, return
  *    them all and write nothing — no partial or empty `graph.json`, and any
  *    prior valid file is left byte-for-byte intact because the serializer is
- *    never invoked (R10.4, R10.6).
+ *    never invoked (R10.4, R10.6). {@link ParseOptions.tolerateFileErrors}
+ *    opts out of this gate for callers indexing arbitrary repositories: the
+ *    skipped files are reported on {@link ParseSuccess.skippedFiles} instead.
+ *    A run in which no file survived still fails.
  * 6. Otherwise **serialize** the graph atomically and return the
  *    {@link ParseSuccess} (R7, R8, R9).
  *
@@ -83,6 +86,27 @@ export interface ParseOptions {
    * (`--include-generated`).
    */
   excludedSegments?: ReadonlySet<string>;
+  /**
+   * Write the graph even when individual files failed, instead of gating the
+   * run on them (step 5 below).
+   *
+   * Default (`false` / omitted) is the R10.4 contract: any recoverable per-file
+   * error fails the whole run and writes nothing. That is right for a curated
+   * project, where a file that will not parse is a problem the caller wants to
+   * see. It is wrong for indexing an arbitrary repository, where one unreadable
+   * or non-compiling file would discard a whole valid graph.
+   *
+   * When set, the three recoverable reasons — `path-unsupported`,
+   * `file-unreadable`, `file-unparseable` — are reported on
+   * {@link ParseSuccess.skippedFiles} rather than returned as failures. Each
+   * such file contributed no nodes and no references, so the graph is simply
+   * the subset that parsed. Fatal errors are unaffected: a bad directory, zero
+   * `.java` files, and the serializer's `duplicate-node-id` check all still
+   * fail the run.
+   *
+   * A run in which *every* file failed still fails, even here — see step 5.
+   */
+  tolerateFileErrors?: boolean;
 }
 
 /**
@@ -233,7 +257,18 @@ async function parseProjectUnguarded(
   //    write nothing. The serializer is never invoked, so no partial/empty
   //    `graph.json` is created and any prior valid file is left byte-for-byte
   //    intact (R10.4, R10.6).
-  if (errors.hasErrors()) {
+  //
+  //    `tolerateFileErrors` opts out of the gate, not out of the errors: the
+  //    skipped files ride along on the success value instead, so indexing an
+  //    arbitrary repository is not abandoned over one file that will not parse.
+  //    Two things deliberately do not change under the opt-in. A run where no
+  //    file survived still fails — an empty node set is the `no-java-files`
+  //    condition reached by a different route, and writing an empty graph would
+  //    only move the failure into `group`, where it reads as a corrupt index
+  //    rather than an unparseable repository. And every *fatal* error still
+  //    fails, including the serializer's `duplicate-node-id` check, which is
+  //    raised there rather than collected here.
+  if (errors.hasErrors() && (options.tolerateFileErrors !== true || nodes.length === 0)) {
     return err(errors.errors());
   }
 
@@ -246,6 +281,12 @@ async function parseProjectUnguarded(
     }
     if (excludedDirectoryCount > 0) {
       written.value.excludedDirectoryCount = excludedDirectoryCount;
+    }
+    // Reachable only under `tolerateFileErrors`: in the default mode the gate
+    // above has already returned these as failures, so a caller that did not
+    // opt in never sees this field.
+    if (errors.hasErrors()) {
+      written.value.skippedFiles = errors.errors();
     }
   }
   return written;

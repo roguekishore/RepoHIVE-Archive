@@ -12,6 +12,9 @@
  * - All recorded errors are returned when more than one file fails.
  * - The happy path writes exactly once with the default output path
  *   `<projectDirectory>/graph.json` and returns the serializer's success.
+ * - `tolerateFileErrors` opts out of the gate: the graph is written from the
+ *   files that parsed and the skipped ones are reported on the success value —
+ *   except when no file survived, which still fails.
  *
  * Uses `node:test` with injected {@link ParseDeps} stubs so the gate is
  * verified deterministically without the real filesystem or Tree-Sitter
@@ -463,4 +466,115 @@ test("an unrepresentable path is recorded as recoverable and blocks the write", 
   assert.equal(result.errors[0]!.path, "src/we\\ird.java");
   // Parity with file-unreadable: recorded errors gate the write (R10.4).
   assert.equal(writes.calls.length, 0);
+});
+
+// --- tolerateFileErrors: opt out of the gate ------------------------------
+
+test("tolerateFileErrors writes the surviving subset and reports the skipped files", async () => {
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT, tolerateFileErrors: true },
+    baseDeps({
+      collector: collectorOk([file("A.java"), file("B.java")]),
+      // B.java is absent from the script, so the extractor records
+      // `file-unparseable` for it and returns null.
+      createExtractor: async () =>
+        scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(result.ok, "a partially-parseable project must still produce a graph");
+  // The graph is exactly the subset that parsed: B.java contributed nothing.
+  assert.equal(writes.calls.length, 1, "writes exactly once");
+  assert.deepEqual(
+    writes.calls[0]!.nodes.map((n) => n.id),
+    ["file:A.java"],
+  );
+  assert.equal(result.value.nodeCount, 1);
+  // The failure is reported rather than discarded — a silent skip would let a
+  // repository quietly index as half itself.
+  assert.equal(result.value.skippedFiles?.length, 1);
+  assert.equal(result.value.skippedFiles?.[0]!.reason, "file-unparseable");
+  assert.equal(result.value.skippedFiles?.[0]!.path, "B.java");
+});
+
+test("tolerateFileErrors still fails when no file survived", async () => {
+  // An empty node set is the `no-java-files` condition reached by another
+  // route. Writing an empty graph would only move the failure into `group`,
+  // where it reads as a corrupt index rather than an unparseable repository.
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT, tolerateFileErrors: true },
+    baseDeps({
+      collector: collectorOk([file("A.java"), file("B.java")]),
+      createExtractor: async () => scriptedExtractor({}, []),
+      serializer: forbiddenSerializer(),
+    }),
+  );
+
+  assert.ok(!result.ok, "a project in which nothing parsed must fail");
+  assert.equal(result.errors.length, 2, "every recorded error is still returned");
+});
+
+test("tolerateFileErrors also tolerates a collector-recorded unrepresentable path", async () => {
+  // `path-unsupported` is recorded during collection rather than extraction, so
+  // it reaches the gate by a different route than the extractor's two reasons.
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT, tolerateFileErrors: true },
+    baseDeps({
+      collector: {
+        async collect(_root, options) {
+          options?.onUnsupportedPath?.(
+            makeError("path-unsupported", "path cannot be represented", "src/we\\ird.java"),
+          );
+          return ok<CollectedFile[], ParseError>([file("A.java")]);
+        },
+      },
+      createExtractor: async () =>
+        scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(result.ok);
+  assert.equal(writes.calls.length, 1);
+  assert.equal(result.value.skippedFiles?.length, 1);
+  assert.equal(result.value.skippedFiles?.[0]!.reason, "path-unsupported");
+});
+
+test("the default mode is unchanged: no opt-in means the gate still holds", async () => {
+  // Guards the R10.4 contract against the opt-in leaking into the default. Same
+  // inputs as the tolerating test above, flag absent.
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT },
+    baseDeps({
+      collector: collectorOk([file("A.java"), file("B.java")]),
+      createExtractor: async () =>
+        scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(!result.ok, "one unparseable file still fails the run by default");
+  assert.equal(writes.calls.length, 0, "nothing is written");
+});
+
+test("a fully-parseable project reports no skippedFiles even when tolerating", async () => {
+  // The field is absent, not an empty array, so a caller cannot mistake a clean
+  // run for one that skipped nothing-in-particular.
+  const writes = { calls: [] as { nodes: GraphNode[]; edges: DependencyEdge[]; outputPath: string }[] };
+  const result = await parseProject(
+    { projectDirectory: ABS_ROOT, tolerateFileErrors: true },
+    baseDeps({
+      collector: collectorOk([file("A.java")]),
+      createExtractor: async () =>
+        scriptedExtractor({ "A.java": { result: extraction("A.java") } }, []),
+      serializer: recordingSerializer(writes),
+    }),
+  );
+
+  assert.ok(result.ok);
+  assert.equal(result.value.skippedFiles, undefined);
 });
