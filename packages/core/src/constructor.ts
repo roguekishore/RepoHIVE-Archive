@@ -17,7 +17,6 @@
 import type { NodeId } from "@repohive/shared";
 import { compareIds } from "./canonical.js";
 import type { CommunityDetector, CommunitySubgraph } from "./community.js";
-import { ConstructWorkerPool } from "./construct-pool.js";
 import { owningFileOf } from "./regions.js";
 import type {
   Action,
@@ -100,6 +99,7 @@ export async function constructParallel(
   }
 
   if (toReconstruct.length > 0) {
+    const { ConstructWorkerPool } = await import("./construct-pool.js");
     const pool = new ConstructWorkerPool();
     try {
       const results = await Promise.all(
