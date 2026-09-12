@@ -198,7 +198,7 @@ async function run() {
     return;
   }
 
-  const grouped = groupGraphToIndex(graph.value, spec.stagingDir);
+  const grouped = await groupGraphToIndex(graph.value, spec.stagingDir);
   if (!grouped.ok) {
     fail("group-failed", describeError(grouped.error));
     return;
