@@ -1,5 +1,5 @@
 # ---- Build stage ----
-FROM --platform=linux/amd64 node:20-slim AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
@@ -28,7 +28,7 @@ WORKDIR /app/packages/web
 RUN npx next build
 
 # ---- Runtime stage ----
-FROM --platform=linux/amd64 node:20-slim AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 
