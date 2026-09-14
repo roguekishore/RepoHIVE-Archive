@@ -3,6 +3,11 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
+# node-gyp (tree-sitter-java native bindings) needs Python and build tools
+RUN apt-get update -qq && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
+
 # Copy workspace manifests and lock file first (layer-cache deps install)
 COPY package.json package-lock.json ./
 COPY tsconfig.base.json ./
